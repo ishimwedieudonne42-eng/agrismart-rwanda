@@ -1,0 +1,292 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgriSmart Rwanda | Crop Intelligence</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f7f2;
+      color: #24352a;
+    }
+
+    header {
+      background: #174d32;
+      color: white;
+      padding: 28px 7%;
+    }
+
+    header h1 { margin: 0 0 8px; }
+    header p { margin: 0; color: #d9ebdf; }
+
+    main {
+      max-width: 1100px;
+      margin: 28px auto;
+      padding: 0 20px;
+    }
+
+    .notice {
+      background: #fff8df;
+      border-left: 4px solid #d9a323;
+      padding: 14px;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 22px;
+      margin-bottom: 22px;
+      box-shadow: 0 3px 14px #183c2010;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+    }
+
+    .stat-value {
+      font-size: 28px;
+      font-weight: bold;
+      color: #17643e;
+      margin-top: 10px;
+    }
+
+    select {
+      padding: 10px;
+      border: 1px solid #ccd7ce;
+      border-radius: 6px;
+      background: white;
+      max-width: 100%;
+    }
+
+    .chart-container {
+      position: relative;
+      height: 380px;
+    }
+
+    #status { color: #526459; }
+    footer {
+      text-align: center;
+      padding: 25px;
+      color: #657469;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🌱 AgriSmart Rwanda</h1>
+    <p>Agricultural data intelligence for Rwanda</p>
+  </header>
+
+  <main>
+    <div class="notice">
+      <strong>Data note:</strong> This prototype uses published NISR
+      Season B crop statistics. Results describe reported data and
+      do not prove why production changes. Crop categories may overlap.
+    </div>
+
+    <section class="stats">
+      <div class="card">
+        <div>Crop categories in 2025</div>
+        <div class="stat-value" id="cropCount">—</div>
+      </div>
+      <div class="card">
+        <div>Year of focus</div>
+        <div class="stat-value">2025</div>
+      </div>
+      <div class="card">
+        <div>Survey season</div>
+        <div class="stat-value">B</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Crop production in 2025</h2>
+      <p>Choose how many crop categories to display.</p>
+      <label for="limit">Number of categories: </label>
+      <select id="limit">
+        <option value="5">Top 5</option>
+        <option value="10" selected>Top 10</option>
+        <option value="15">Top 15</option>
+        <option value="100">All available</option>
+      </select>
+      <p id="status">Loading the crop dataset...</p>
+      <div class="chart-container">
+        <canvas id="productionChart"></canvas>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>About this dashboard</h2>
+      <p>
+        This first version summarizes crop production using a prepared
+        dataset. The next development stages will add district comparisons,
+        yield analysis, data validation and source documentation.
+      </p>
+      <p>
+        Source: National Institute of Statistics of Rwanda (NISR),
+        Seasonal Agricultural Survey 2025, Season B.
+      </p>
+      <a href="https://microdatabk.statistics.gov.rw/catalog/124"
+         target="_blank" rel="noopener noreferrer">
+        View NISR survey catalog
+      </a>
+    </section>
+  </main>
+
+  <footer>
+    AgriSmart Rwanda · Student data science project
+  </footer>
+
+  <script>
+    let cropRows = [];
+    let productionChart = null;
+
+    const csvPath =
+      "data/processed/agrismart_season_b_crop_data.csv";
+
+    function showError(message) {
+      document.getElementById("status").textContent = message;
+    }
+
+    function drawChart() {
+      const limit = Number(document.getElementById("limit").value);
+
+      const topCrops = cropRows
+        .filter(row =>
+          row.crop &&
+          Number.isFinite(row.production_mt) &&
+          row.production_mt >= 0
+        )
+        .sort((a, b) => b.production_mt - a.production_mt)
+        .slice(0, limit);
+
+      if (productionChart) {
+        productionChart.destroy();
+      }
+
+      productionChart = new Chart(
+        document.getElementById("productionChart"),
+        {
+          type: "bar",
+          data: {
+            labels: topCrops.map(row => row.crop),
+            datasets: [{
+              label: "Reported production (metric tonnes)",
+              data: topCrops.map(row => row.production_mt),
+              backgroundColor: "#39845a",
+              borderRadius: 5
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: "y",
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: context =>
+                    context.parsed.x.toLocaleString() + " tonnes"
+                }
+              }
+            },
+            scales: {
+              x: {
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: "Production (metric tonnes)"
+                }
+              }
+            }
+          }
+        }
+      );
+
+      document.getElementById("status").textContent =
+        "Showing " + topCrops.length +
+        " crop categories from the 2025 Season B dataset.";
+    }
+
+    fetch(csvPath)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(
+            "Dataset not found. Check the CSV file location in GitHub."
+          );
+        }
+        return response.text();
+      })
+      .then(csvText => {
+        const parsed = Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+          transformHeader: header =>
+            header.trim().replace(/^\uFEFF/, "")
+        });
+
+        if (parsed.errors.length > 0) {
+          console.warn("CSV parsing warnings:", parsed.errors);
+        }
+
+        const fields = parsed.meta.fields || [];
+        const required = [
+          "crop", "year", "season", "production_mt"
+        ];
+
+        const missing = required.filter(
+          column => !fields.includes(column)
+        );
+
+        if (missing.length > 0) {
+          throw new Error(
+            "CSV is missing expected columns: " + missing.join(", ")
+          );
+        }
+
+        cropRows = parsed.data
+          .filter(row =>
+            Number(row.year) === 2025 &&
+            String(row.season).trim().toUpperCase() === "B"
+          )
+          .map(row => ({
+            crop: String(row.crop).trim(),
+            production_mt: Number(row.production_mt)
+          }));
+
+        if (cropRows.length === 0) {
+          throw new Error(
+            "No 2025 Season B records found. Check the CSV values."
+          );
+        }
+
+        document.getElementById("cropCount").textContent =
+          new Set(cropRows.map(row => row.crop)).size;
+
+        drawChart();
+      })
+      .catch(error => {
+        console.error(error);
+        showError("Unable to load data: " + error.message);
+      });
+
+    document.getElementById("limit").addEventListener(
+      "change", () => {
+        if (cropRows.length > 0) drawChart();
+      }
+    );
+  </script>
+</body>
+</html>
