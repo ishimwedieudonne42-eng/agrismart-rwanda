@@ -1,0 +1,292 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>District Explorer | AgriSmart Rwanda</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f7f2;
+      color: #24352a;
+    }
+
+    header {
+      background: #174d32;
+      color: white;
+      padding: 24px 6%;
+    }
+
+    header a { color: #e0f2e5; }
+    header h1 { margin-bottom: 8px; }
+
+    main {
+      max-width: 1100px;
+      margin: 28px auto;
+      padding: 0 18px;
+    }
+
+    .card {
+      background: white;
+      padding: 22px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 3px 14px #183c2010;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+
+    select {
+      padding: 11px;
+      border: 1px solid #ccd7ce;
+      border-radius: 7px;
+      min-width: 200px;
+      background: white;
+    }
+
+    .stat {
+      color: #17643e;
+      font-size: 28px;
+      font-weight: bold;
+    }
+
+    .chart-container {
+      position: relative;
+      height: 520px;
+    }
+
+    .notice {
+      background: #fff8df;
+      border-left: 4px solid #d9a323;
+      padding: 14px;
+      line-height: 1.5;
+    }
+
+    #status { color: #526459; }
+
+    @media (max-width: 600px) {
+      .chart-container { height: 650px; }
+      select { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🌱 AgriSmart Rwanda</h1>
+    <p>District Crop Productivity Explorer</p>
+    <a href="./index.html">← Back to national dashboard</a>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Compare crop yields by district</h2>
+      <p>
+        Select a crop to compare its reported Season B 2025 yield
+        across districts.
+      </p>
+
+      <div class="controls">
+        <label for="cropSelect">Choose a crop:</label>
+        <select id="cropSelect" disabled>
+          <option>Loading crops...</option>
+        </select>
+      </div>
+
+      <p id="status">Loading district dataset...</p>
+      <div class="chart-container">
+        <canvas id="yieldChart"></canvas>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Selected crop summary</h2>
+      <p>Districts with positive reported yield values:</p>
+      <div class="stat" id="districtCount">—</div>
+      <p id="summary">Select a crop to view its summary.</p>
+    </section>
+
+    <section class="card notice">
+      <strong>How to interpret this chart</strong>
+      <p>
+        Source: NISR Seasonal Agricultural Survey 2025, Season B,
+        Table 11. Yield is displayed in kilograms per hectare (kg/ha).
+      </p>
+      <p>
+        Entries with zero or missing yield are excluded from the chart
+        until their meaning is verified against the original table.
+        A higher reported yield does not by itself explain why a
+        district performs differently.
+      </p>
+    </section>
+  </main>
+
+  <script>
+    let districtData = [];
+    let chart = null;
+
+    const cropSelect = document.getElementById("cropSelect");
+
+    function showError(message) {
+      document.getElementById("status").textContent = message;
+    }
+
+    function updateChart() {
+      const selectedCrop = cropSelect.value;
+
+      const rows = districtData
+        .filter(row =>
+          row.crop === selectedCrop &&
+          Number.isFinite(row.yield) &&
+          row.yield > 0
+        )
+        .sort((a, b) => b.yield - a.yield);
+
+      if (chart) chart.destroy();
+
+      if (rows.length === 0) {
+        document.getElementById("districtCount").textContent = "0";
+        document.getElementById("summary").textContent =
+          "No positive yield values are available for this crop.";
+        showError("No positive reported yields available for this crop.");
+        return;
+      }
+
+      chart = new Chart(document.getElementById("yieldChart"), {
+        type: "bar",
+        data: {
+          labels: rows.map(row => row.district),
+          datasets: [{
+            label: "Reported yield (kg/ha)",
+            data: rows.map(row => row.yield),
+            backgroundColor: "#39845a",
+            borderRadius: 4
+          }]
+        },
+        options: {
+          indexAxis: "y",
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: context =>
+                  context.parsed.x.toLocaleString(undefined, {
+                    maximumFractionDigits: 1
+                  }) + " kg/ha"
+              }
+            }
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: "Yield (kg/ha)"
+              }
+            }
+          }
+        }
+      });
+
+      document.getElementById("districtCount").textContent =
+        rows.length + " / 30";
+
+      const values = rows.map(row => row.yield);
+      const average = values.reduce((sum, value) => sum + value, 0)
+        / values.length;
+
+      document.getElementById("summary").textContent =
+        "Mean of displayed district values: " +
+        average.toLocaleString(undefined, {
+          maximumFractionDigits: 1
+        }) + " kg/ha. This is an unweighted mean, not a national yield estimate.";
+
+      showError(
+        "Showing " + rows.length +
+        " districts with positive reported yield for " + selectedCrop + "."
+      );
+    }
+
+    fetch("./data/processed/agrismart_district_crop_yield_2025.csv")
+      .then(response => {
+        if (!response.ok) {
+          throw new Error("Could not find the district-yield CSV.");
+        }
+        return response.text();
+      })
+      .then(csvText => {
+        const parsed = Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+          transformHeader: header =>
+            header.trim().replace(/^\uFEFF/, "")
+        });
+
+        if (parsed.errors.length > 0) {
+          console.warn("CSV parsing warnings:", parsed.errors);
+        }
+
+        const required = [
+          "district", "crop", "yield_kg_per_ha", "year", "season"
+        ];
+
+        const fields = parsed.meta.fields || [];
+        const missing = required.filter(
+          column => !fields.includes(column)
+        );
+
+        if (missing.length > 0) {
+          throw new Error("Missing CSV columns: " + missing.join(", "));
+        }
+
+        districtData = parsed.data
+          .filter(row =>
+            Number(row.year) === 2025 &&
+            String(row.season).trim().toUpperCase() === "B"
+          )
+          .map(row => ({
+            district: String(row.district).trim(),
+            crop: String(row.crop).trim(),
+            yield: Number(row.yield_kg_per_ha)
+          }))
+          .filter(row => row.district && row.crop);
+
+        const crops = [...new Set(districtData.map(row => row.crop))]
+          .sort();
+
+        if (crops.length === 0) {
+          throw new Error("No crop records were found in the CSV.");
+        }
+
+        cropSelect.innerHTML = "";
+
+        crops.forEach(crop => {
+          const option = document.createElement("option");
+          option.value = crop;
+          option.textContent = crop;
+          cropSelect.appendChild(option);
+        });
+
+        cropSelect.disabled = false;
+        cropSelect.addEventListener("change", updateChart);
+        updateChart();
+      })
+      .catch(error => {
+        console.error(error);
+        showError("Unable to load dataset: " + error.message);
+      });
+  </script>
+</body>
+</html>
