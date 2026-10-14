@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agricultural Insights | AgriSmart Rwanda</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f4f7f2; color: #24352a; }
+    header { background: #174d32; color: white; padding: 24px 6%; }
+    header h1 { margin-bottom: 8px; }
+    header a { color: #e0f2e5; }
+    main { max-width: 1150px; margin: 28px auto; padding: 0 18px; }
+    .card { background: white; padding: 22px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 3px 14px #183c2010; }
+    .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    select { padding: 11px; border: 1px solid #ccd7ce; border-radius: 7px; min-width: 220px; background: white; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+    .chart-container { position: relative; height: 360px; }
+    .stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+    .statbox { background: #f1f7f1; padding: 14px; border-radius: 8px; }
+    .stat { color: #17643e; font-size: 24px; font-weight: bold; margin-top: 8px; }
+    .muted { color: #526459; line-height: 1.5; }
+    .notice { background: #fff8df; border-left: 4px solid #d9a323; padding: 14px; line-height: 1.5; }
+    #status { color: #526459; }
+    @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 480px) { .stat-grid { grid-template-columns: 1fr 1fr; } select { width: 100%; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🌱 AgriSmart Rwanda</h1>
+    <p>Agricultural Practices & Soil Erosion Insights</p>
+    <a href="./index.html">← National dashboard</a> · <a href="./districts.html">District crop productivity</a>
+  </header>
+  <main>
+    <section class="card">
+      <h2>Explore a district</h2>
+      <p class="muted">Review NISR-reported agricultural practices and plot erosion classifications for the selected district.</p>
+      <div class="controls">
+        <label for="districtSelect"><strong>District:</strong></label>
+        <select id="districtSelect"><option value="">Loading districts…</option></select>
+      </div>
+      <p id="status" role="status">Loading published datasets…</p>
+      <div class="stat-grid">
+        <div class="statbox"><div>Land protected against erosion</div><div class="stat" id="protectedStat">—</div></div>
+        <div class="statbox"><div>Irrigation practice</div><div class="stat" id="irrigationStat">—</div></div>
+        <div class="statbox"><div>Agroforestry practice</div><div class="stat" id="agroStat">—</div></div>
+        <div class="statbox"><div>Plots with severe erosion</div><div class="stat" id="severeStat">—</div></div>
+      </div>
+    </section>
+    <div class="grid">
+      <section class="card">
+        <h2>Reported agricultural practices</h2>
+        <p class="muted">Percentages from Table 29. Blank values are shown as unavailable, not as zero.</p>
+        <div class="chart-container"><canvas id="practiceChart" aria-label="Agricultural practice percentages"></canvas></div>
+      </section>
+      <section class="card">
+        <h2>Reported plot erosion levels</h2>
+        <p class="muted">Distribution across the four erosion classifications in Table 33.</p>
+        <div class="chart-container"><canvas id="erosionChart" aria-label="Plot erosion classification percentages"></canvas></div>
+      </section>
+    </div>
+    <section class="card">
+      <h2>How to interpret these indicators</h2>
+      <p>These charts show district-level descriptive statistics. They do not prove that any one practice caused or prevented a particular erosion outcome. The practices and erosion measures may use different denominators and survey definitions.</p>
+      <div class="notice"><strong>Data note:</strong> Figures are from the NISR Seasonal Agricultural Survey 2025, Season B, Tables 29 and 33. Percentages are displayed as reported. Missing cells remain unavailable; zero is retained only where the source reports zero.</div>
+      <p class="muted">Source: <a href="https://microdatabk.statistics.gov.rw/catalog/124" target="_blank" rel="noopener">NISR SAS 2025 catalogue</a>.</p>
+    </section>
+  </main>
+<script>
+const practicesUrl = './data/processed/agrismart_district_agricultural_practices_2025.csv';
+const erosionUrl = './data/processed/agrismart_district_erosion_2025.csv';
+let practices = [], erosion = [], practiceChart, erosionChart;
+const pct = v => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
+const displayPct = v => pct(v) === null ? 'N/A' : pct(v).toFixed(2) + '%';
+function readCsv(url) {
+  return new Promise((resolve, reject) => Papa.parse(url, {
+    download: true, header: true, skipEmptyLines: true,
+    complete: result => result.errors.length ? reject(new Error(result.errors[0].message)) : resolve(result.data),
+    error: error => reject(error)
+  }));
+}
+function chartConfig(label, labels, values) {
+  return { type: 'bar', data: { labels, datasets: [{ label, data: values, backgroundColor: '#39845a', borderRadius: 5 }] },
+    options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+      scales: { x: { beginAtZero: true, max: 100, title: { display: true, text: 'Percent (%)' } } },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.raw === null ? 'Unavailable' : ctx.raw + '%' } } } } };
+}
+function renderDistrict(name) {
+  const p = practices.find(r => r.district === name);
+  const e = erosion.find(r => r.district === name);
+  if (!p || !e) { document.getElementById('status').textContent = 'No matching record found for this district.'; return; }
+  document.getElementById('status').textContent = 'Showing published indicators for ' + name + '.';
+  document.getElementById('protectedStat').textContent = displayPct(p.land_protected_against_erosion_pct);
+  document.getElementById('irrigationStat').textContent = displayPct(p.irrigation_practice_pct);
+  document.getElementById('agroStat').textContent = displayPct(p.agroforestry_practice_pct);
+  document.getElementById('severeStat').textContent = displayPct(e.severe_erosion_plots_pct);
+  const practiceLabels = ['Land protected against erosion', 'Mechanical equipment use', 'Irrigation practice', 'Agroforestry practice'];
+  const practiceValues = [pct(p.land_protected_against_erosion_pct), pct(p.mechanical_equipment_use_pct), pct(p.irrigation_practice_pct), pct(p.agroforestry_practice_pct)];
+  const erosionLabels = ['Severe erosion', 'Moderate erosion', 'Low erosion', 'Very low erosion'];
+  const erosionValues = [pct(e.severe_erosion_plots_pct), pct(e.moderate_erosion_plots_pct), pct(e.low_erosion_plots_pct), pct(e.very_low_erosion_plots_pct)];
+  if (practiceChart) practiceChart.destroy();
+  if (erosionChart) erosionChart.destroy();
+  practiceChart = new Chart(document.getElementById('practiceChart'), chartConfig('Practices', practiceLabels, practiceValues));
+  erosionChart = new Chart(document.getElementById('erosionChart'), chartConfig('Erosion levels', erosionLabels, erosionValues));
+}
+async function init() {
+  try {
+    const results = await Promise.all([readCsv(practicesUrl), readCsv(erosionUrl)]);
+    practices = results[0]; erosion = results[1];
+    const names = practices.map(r => r.district).filter(Boolean).filter(n => erosion.some(e => e.district === n)).sort((a,b) => a.localeCompare(b));
+    const select = document.getElementById('districtSelect');
+    select.innerHTML = '';
+    names.forEach(name => { const option = document.createElement('option'); option.value = name; option.textContent = name; select.appendChild(option); });
+    if (!names.length) throw new Error('No district names matched across the two datasets.');
+    select.addEventListener('change', () => renderDistrict(select.value));
+    renderDistrict(names[0]);
+  } catch (err) {
+    document.getElementById('status').textContent = 'Could not load the datasets. Check that both CSV files are committed under data/processed/. Details: ' + err.message;
+  }
+}
+init();
+</script>
+</body>
+</html>
