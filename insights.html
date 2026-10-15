@@ -95,6 +95,23 @@
         <div class="statbox"><div>Erosion indicators available</div><div class="stat" id="erosionAvailableCount">—</div></div>
       </div>
     </section>
+    <section class="card">
+      <h2>Compare two districts</h2>
+      <p class="muted">Compare reported agricultural practices and plot erosion classifications side by side. Differences are descriptive and do not establish cause and effect.</p>
+      <div class="controls">
+        <label for="compareDistrictA"><strong>District A:</strong></label>
+        <select id="compareDistrictA" aria-label="First district to compare"></select>
+        <label for="compareDistrictB"><strong>District B:</strong></label>
+        <select id="compareDistrictB" aria-label="Second district to compare"></select>
+      </div>
+      <div style="overflow-x:auto; margin-top:18px;">
+        <table id="districtComparisonTable" style="width:100%; border-collapse:collapse; text-align:left;">
+          <thead><tr><th style="padding:12px; background:#e7f1e8;">Indicator</th><th id="compareHeadingA" style="padding:12px; background:#e7f1e8;">District A</th><th id="compareHeadingB" style="padding:12px; background:#e7f1e8;">District B</th><th style="padding:12px; background:#e7f1e8;">Difference (A − B)</th></tr></thead>
+          <tbody id="districtComparisonBody"><tr><td colspan="4" style="padding:12px;">Loading comparison…</td></tr></tbody>
+        </table>
+      </div>
+      <p class="muted" style="margin-top:12px;">N/A means the source value is missing or unavailable. Percentage-point differences are calculated only when both values are available.</p>
+    </section>
     <div class="grid">
       <section class="card">
         <h2>Reported agricultural practices</h2>
@@ -133,6 +150,42 @@ function chartConfig(label, labels, values) {
       scales: { x: { beginAtZero: true, max: 100, title: { display: true, text: 'Percent (%)' } } },
       plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.raw === null ? 'Unavailable' : ctx.raw + '%' } } } } };
 }
+function renderComparison() {
+  const nameA = document.getElementById('compareDistrictA').value;
+  const nameB = document.getElementById('compareDistrictB').value;
+  const pA = practices.find(r => r.district === nameA);
+  const pB = practices.find(r => r.district === nameB);
+  const eA = erosion.find(r => r.district === nameA);
+  const eB = erosion.find(r => r.district === nameB);
+  document.getElementById('compareHeadingA').textContent = nameA || 'District A';
+  document.getElementById('compareHeadingB').textContent = nameB || 'District B';
+  const indicators = [
+    { label: 'Land protected against erosion', a: pA && pA.land_protected_against_erosion_pct, b: pB && pB.land_protected_against_erosion_pct },
+    { label: 'Mechanical equipment use', a: pA && pA.mechanical_equipment_use_pct, b: pB && pB.mechanical_equipment_use_pct },
+    { label: 'Irrigation practice', a: pA && pA.irrigation_practice_pct, b: pB && pB.irrigation_practice_pct },
+    { label: 'Agroforestry practice', a: pA && pA.agroforestry_practice_pct, b: pB && pB.agroforestry_practice_pct },
+    { label: 'Severe erosion plots', a: eA && eA.severe_erosion_plots_pct, b: eB && eB.severe_erosion_plots_pct },
+    { label: 'Moderate erosion plots', a: eA && eA.moderate_erosion_plots_pct, b: eB && eB.moderate_erosion_plots_pct },
+    { label: 'Low erosion plots', a: eA && eA.low_erosion_plots_pct, b: eB && eB.low_erosion_plots_pct },
+    { label: 'Very low erosion plots', a: eA && eA.very_low_erosion_plots_pct, b: eB && eB.very_low_erosion_plots_pct }
+  ];
+  const body = document.getElementById('districtComparisonBody');
+  body.innerHTML = '';
+  indicators.forEach((item, index) => {
+    const a = pct(item.a), b = pct(item.b);
+    const diff = a === null || b === null ? null : a - b;
+    const tr = document.createElement('tr');
+    tr.style.background = index % 2 === 0 ? '#ffffff' : '#f6f9f6';
+    [item.label, displayPct(a), displayPct(b), diff === null ? 'N/A' : (diff > 0 ? '+' : '') + diff.toFixed(2) + ' pp'].forEach(value => {
+      const td = document.createElement('td');
+      td.textContent = value;
+      td.style.padding = '12px';
+      td.style.borderBottom = '1px solid #e1e9e2';
+      tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
+}
 function renderDistrict(name) {
   const p = practices.find(r => r.district === name);
   const e = erosion.find(r => r.district === name);
@@ -169,7 +222,21 @@ async function init() {
     if (!names.length) throw new Error('No district names matched across the two datasets.');
     document.getElementById('coverageDistrictCount').textContent = names.length;
     select.addEventListener('change', () => renderDistrict(select.value));
+    const compareA = document.getElementById('compareDistrictA');
+    const compareB = document.getElementById('compareDistrictB');
+    [compareA, compareB].forEach((comparisonSelect, index) => {
+      comparisonSelect.innerHTML = '';
+      names.forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        comparisonSelect.appendChild(option);
+      });
+      comparisonSelect.value = names[Math.min(index, names.length - 1)];
+      comparisonSelect.addEventListener('change', renderComparison);
+    });
     renderDistrict(names[0]);
+    renderComparison();
   } catch (err) {
     document.getElementById('status').textContent = 'Could not load the datasets. Check that both CSV files are committed under data/processed/. Details: ' + err.message;
   }
