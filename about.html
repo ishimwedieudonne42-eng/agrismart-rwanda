@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Project overview, methodology, data sources, and limitations for AgriSmart Rwanda.">
+  <title>Project Overview | AgriSmart Rwanda</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f4f7f2; color: #24352a; line-height: 1.65; }
+    header { background: #174d32; color: white; padding: 28px 7%; }
+    header h1 { margin: 0 0 8px; }
+    header p { margin: 0; color: #d9ebdf; }
+    main { max-width: 1100px; margin: 28px auto; padding: 0 20px; }
+    .card { background: white; border-radius: 12px; padding: 22px; margin-bottom: 20px; box-shadow: 0 3px 14px #183c2010; }
+    .hero { background: #e5f1e7; border: 1px solid #cfe2d2; }
+    h2 { color: #174d32; margin-top: 0; }
+    h3 { color: #276442; }
+    .nav-buttons { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+    .nav-buttons a { display: inline-flex; align-items: center; justify-content: center; padding: 11px 16px; border: 2px solid #d9ebdf; border-radius: 8px; background: #2b7049; color: #fff; font-weight: 700; text-decoration: none; transition: background .2s ease, transform .2s ease; }
+    .nav-buttons a:hover:not([aria-disabled="true"]), .nav-buttons a:focus-visible:not([aria-disabled="true"]) { background: #39845a; transform: translateY(-1px); }
+    .nav-buttons a[aria-disabled="true"] { background: #e1e8e2; color: #536359; border-color: #e1e8e2; cursor: not-allowed; opacity: .85; pointer-events: none; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+    .mini-card { background: #f1f7f1; border: 1px solid #dce9de; border-radius: 10px; padding: 16px; }
+    .notice { background: #fff8df; border-left: 4px solid #d9a323; padding: 14px; }
+    a { color: #17643e; }
+    footer { text-align: center; padding: 25px; color: #657469; font-size: 13px; }
+    @media (max-width: 600px) { header { padding: 24px 20px; } .card { padding: 18px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🌱 AgriSmart Rwanda</h1>
+    <p>Project overview, data sources, and methodology</p>
+    <nav class="nav-buttons" aria-label="Main navigation">
+      <a href="./index.html">National dashboard</a>
+      <a href="./districts.html">District productivity</a>
+      <a href="./insights.html">Agricultural insights</a>
+      <a href="./about.html">Project overview</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="card hero">
+      <h2>About the project</h2>
+      <p><strong>AgriSmart Rwanda</strong> is a student data-intelligence prototype that organizes published agricultural statistics into accessible dashboards. It helps users explore crop production, compare reported crop yields across districts, and review district-level agricultural practices and soil-erosion indicators.</p>
+      <p>The goal is to make official data easier to explore and to identify questions that may deserve further investigation—not to replace field research or professional agricultural advice.</p>
+    </section>
+
+    <section class="card">
+      <h2>1. The problem</h2>
+      <p>Agricultural statistics can be difficult to compare when information is spread across multiple tables. Students, researchers, planners, and other interested users may need a simpler way to inspect crop indicators and district-level differences.</p>
+      <p>AgriSmart Rwanda brings selected published indicators together in one website with charts, filters, district comparisons, and CSV downloads.</p>
+    </section>
+
+    <section class="card">
+      <h2>2. Project objectives</h2>
+      <div class="grid">
+        <div class="mini-card"><h3>Explore national crop data</h3><p>Display reported crop production, yield, cultivated area, and harvested area.</p></div>
+        <div class="mini-card"><h3>Compare districts</h3><p>Allow users to select a crop and compare its reported yield across districts.</p></div>
+        <div class="mini-card"><h3>Review other indicators</h3><p>Explore reported agricultural practices and plot erosion classifications by district.</p></div>
+        <div class="mini-card"><h3>Support further investigation</h3><p>Highlight descriptive differences and make selected data available for additional analysis.</p></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>3. Data sources</h2>
+      <p>The current prototype uses prepared CSV files based on the <strong>National Institute of Statistics of Rwanda (NISR), Seasonal Agricultural Survey (SAS) 2025, Season B</strong>.</p>
+      <ul>
+        <li><strong>Table 6:</strong> National crop area, production, and yield comparisons.</li>
+        <li><strong>Table 9:</strong> Cultivated area by crop and district.</li>
+        <li><strong>Table 10:</strong> Harvested area by crop and district.</li>
+        <li><strong>Table 11:</strong> Average crop yield by district.</li>
+        <li><strong>Table 13:</strong> Crop production by district.</li>
+        <li><strong>Table 29:</strong> Selected agricultural-practice indicators by district.</li>
+        <li><strong>Table 33:</strong> Reported plot erosion classifications by district.</li>
+      </ul>
+      <p>Consult the original catalogue and tables to verify definitions and context: <a href="https://microdatabk.statistics.gov.rw/catalog/124" target="_blank" rel="noopener noreferrer">NISR SAS 2025 catalogue</a>.</p>
+    </section>
+
+    <section class="card">
+      <h2>4. Methodology</h2>
+      <ol>
+        <li><strong>Source selection:</strong> Select relevant published NISR tables for national crops, district yields, agricultural practices, and erosion classifications.</li>
+        <li><strong>Data preparation:</strong> Convert selected tables into structured CSV files for use by the website.</li>
+        <li><strong>Validation:</strong> Check expected columns and filter records for the relevant year and season where applicable. Missing values are treated as unavailable rather than automatically treated as zero.</li>
+        <li><strong>Descriptive analysis:</strong> Calculate simple summaries and rankings from available reported values, and compare selected districts using the same indicator.</li>
+        <li><strong>Visualization:</strong> Display results using charts, summary indicators, comparison tables, and downloadable CSV files.</li>
+        <li><strong>Interpretation:</strong> Present results as descriptions of the published data and encourage users to check source definitions before drawing conclusions.</li>
+      </ol>
+      <p>The website is a descriptive analytics prototype. It does not currently train a machine-learning model or make farm-level predictions.</p>
+    </section>
+
+    <section class="card">
+      <h2>5. Technology used</h2>
+      <div class="grid">
+        <div class="mini-card"><h3>HTML and CSS</h3><p>Page structure, layout, and responsive styling.</p></div>
+        <div class="mini-card"><h3>JavaScript</h3><p>Data loading, filtering, calculations, and interactive behavior.</p></div>
+        <div class="mini-card"><h3>Chart.js</h3><p>Charts for crop and district indicators.</p></div>
+        <div class="mini-card"><h3>PapaParse and CSV</h3><p>Reading structured CSV datasets in the browser.</p></div>
+        <div class="mini-card"><h3>GitHub Pages</h3><p>Hosting the static website from the project repository.</p></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>6. Limitations and responsible interpretation</h2>
+      <ul>
+        <li>The dashboard depends on the coverage, quality, definitions, and reporting choices of the published source tables.</li>
+        <li>District-level aggregates do not describe every farmer, farm, or individual plot.</li>
+        <li>A difference between districts does not establish its cause. The dashboards cannot prove that a particular practice caused a yield or erosion outcome.</li>
+        <li>Some crop categories may overlap; totals across categories should not be added unless the source confirms that they are mutually exclusive.</li>
+        <li>Zero or missing yield values may need verification against the original table before interpretation.</li>
+        <li>The current version is a prototype for exploration and learning, not a replacement for field assessment, official advice, or a full agricultural decision-support system.</li>
+      </ul>
+      <div class="notice"><strong>Interpretation rule:</strong> Treat a highlighted district indicator as a starting point for a question. Verify the source definition and consult local evidence before recommending an intervention.</div>
+    </section>
+
+    <section class="card">
+      <h2>7. Expected benefits</h2>
+      <ul>
+        <li>Make selected official agricultural indicators easier to explore.</li>
+        <li>Help students practice data preparation, analysis, visualization, and responsible interpretation.</li>
+        <li>Support preliminary comparisons that can guide follow-up research and questions.</li>
+        <li>Encourage the use of published evidence when discussing agricultural productivity in Rwanda.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Explore the dashboards</h2>
+      <p>Open one of the dashboards to interact with the available data.</p>
+      <nav class="nav-buttons" aria-label="Dashboard links">
+        <a href="./index.html">National dashboard</a>
+        <a href="./districts.html">District productivity</a>
+        <a href="./insights.html">Agricultural insights</a>
+      </nav>
+    </section>
+  </main>
+  <footer>AgriSmart Rwanda · Student data science project · Source: NISR SAS 2025, Season B</footer>
+  <script>
+    (() => {
+      const currentPage = window.location.pathname.split("/").pop() || "index.html";
+      document.querySelectorAll(".nav-buttons a[href]").forEach(link => {
+        const targetPage = link.getAttribute("href").split("/").pop().split("?")[0];
+        if (targetPage === currentPage) {
+          link.setAttribute("aria-current", "page");
+          link.setAttribute("aria-disabled", "true");
+          link.setAttribute("tabindex", "-1");
+          link.addEventListener("click", event => event.preventDefault());
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
