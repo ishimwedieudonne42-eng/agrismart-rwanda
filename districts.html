@@ -258,6 +258,8 @@
         </div>
       </div>
       <p id="comparisonSummary" class="compare-note" role="status">Choose a crop and two districts to compare their yields.</p>
+      <button id="downloadComparison" type="button" disabled style="padding:11px 14px;border:0;border-radius:7px;background:#17643e;color:white;font-weight:bold;cursor:pointer;margin-bottom:16px;">Download comparison report (CSV)</button>
+      <p class="compare-note">The report becomes available when both districts have positive reported yields for the selected crop.</p>
       <div class="compare-chart-container"><canvas id="comparisonChart"></canvas></div>
       <p class="compare-note">Percentage difference is calculated relative to District B, when District B has a positive reported yield. Zero or missing values are shown as unavailable for comparison.</p>
     </section>
@@ -285,6 +287,7 @@
     const cropSelect = document.getElementById("cropSelect");
     const districtASelect = document.getElementById("districtASelect");
     const districtBSelect = document.getElementById("districtBSelect");
+    const downloadComparisonButton = document.getElementById("downloadComparison");
 
     function formatYield(value) {
       return Number.isFinite(value) && value > 0
@@ -307,6 +310,7 @@
       const districtB = districtBSelect.value;
       const rowA = findDistrictYield(districtA, cropName);
       const rowB = findDistrictYield(districtB, cropName);
+      downloadComparisonButton.disabled = !rowA || !rowB || !districtA || !districtB || districtA === districtB;
 
       document.getElementById("districtALabel").textContent = districtA || "District A";
       document.getElementById("districtBLabel").textContent = districtB || "District B";
@@ -423,6 +427,48 @@
       const link = document.createElement("a");
       link.href = url;
       link.download = "agrismart_district_yields_2025_season_b.csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function downloadDistrictComparison() {
+      const cropName = cropSelect.value;
+      const districtA = districtASelect.value;
+      const districtB = districtBSelect.value;
+      const rowA = findDistrictYield(districtA, cropName);
+      const rowB = findDistrictYield(districtB, cropName);
+
+      if (!rowA || !rowB || !districtA || !districtB || districtA === districtB) {
+        return;
+      }
+
+      const difference = Math.abs(rowA.yield - rowB.yield);
+      const percent = ((rowA.yield - rowB.yield) / rowB.yield) * 100;
+      const rows = [
+        ["Metric", "Value"],
+        ["Crop", cropName],
+        ["Year", 2025],
+        ["Season", "B"],
+        ["Source", "NISR Seasonal Agricultural Survey 2025, Season B, Table 11"],
+        ["District A", districtA],
+        ["District A reported yield (kg/ha)", rowA.yield],
+        ["District B", districtB],
+        ["District B reported yield (kg/ha)", rowB.yield],
+        ["Absolute difference (kg/ha)", difference],
+        ["Percentage difference relative to District B (%)", percent]
+      ];
+      const csvCell = value => {
+        const safe = value === null || value === undefined ? "" : String(value);
+        return '"' + safe.replace(/"/g, '""') + '"';
+      };
+      const csv = rows.map(row => row.map(csvCell).join(",")).join("\\r\\n");
+      const blob = new Blob(["\\uFEFF", csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "agrismart_district_comparison_2025_season_b.csv";
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -618,6 +664,7 @@
         });
         districtASelect.addEventListener("change", updateComparison);
         districtBSelect.addEventListener("change", updateComparison);
+        downloadComparisonButton.addEventListener("click", downloadDistrictComparison);
         updateChart();
         updateComparison();
       })
