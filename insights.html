@@ -104,6 +104,10 @@
         <label for="compareDistrictB"><strong>District B:</strong></label>
         <select id="compareDistrictB" aria-label="Second district to compare"></select>
       </div>
+      <div style="margin-top:16px;margin-bottom:12px;">
+        <button id="downloadInsightsComparison" type="button" style="padding:12px 16px;border:0;border-radius:7px;background:#17643e;color:white;font-weight:bold;cursor:pointer;">Download comparison report (CSV)</button>
+        <p class="muted">Export all eight indicators and percentage-point differences for the selected districts.</p>
+      </div>
       <div style="overflow-x:auto; margin-top:18px;">
         <table id="districtComparisonTable" style="width:100%; border-collapse:collapse; text-align:left;">
           <thead><tr><th style="padding:12px; background:#e7f1e8;">Indicator</th><th id="compareHeadingA" style="padding:12px; background:#e7f1e8;">District A</th><th id="compareHeadingB" style="padding:12px; background:#e7f1e8;">District B</th><th style="padding:12px; background:#e7f1e8;">Difference (A − B)</th></tr></thead>
@@ -111,8 +115,6 @@
         </table>
       </div>
       <p class="muted" style="margin-top:12px;">N/A means the source value is missing or unavailable. Percentage-point differences are calculated only when both values are available.</p>
-      <button id="downloadInsightsComparison" type="button" style="padding:11px 14px;border:0;border-radius:7px;background:#17643e;color:white;font-weight:bold;cursor:pointer;margin-top:8px;">Download comparison report (CSV)</button>
-      <p class="muted">The report includes the selected districts, all eight indicators, and percentage-point differences.</p>
     </section>
     <section class="card">
       <h2>District indicators to investigate</h2>
