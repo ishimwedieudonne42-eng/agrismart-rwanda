@@ -79,13 +79,48 @@
       .chart-container { height: 650px; }
       select { width: 100%; }
     }
+  
+    .nav-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .nav-buttons a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 11px 16px;
+      border: 2px solid #d9ebdf;
+      border-radius: 8px;
+      background: #2b7049;
+      color: #fff;
+      font-weight: 700;
+      text-decoration: none;
+      transition: background .2s ease, transform .2s ease;
+    }
+    .nav-buttons a:hover:not([aria-disabled="true"]),
+    .nav-buttons a:focus-visible:not([aria-disabled="true"]) {
+      background: #39845a;
+      transform: translateY(-1px);
+    }
+    .nav-buttons a[aria-disabled="true"] {
+      background: #e1e8e2;
+      color: #536359;
+      border-color: #e1e8e2;
+      cursor: not-allowed;
+      opacity: .85;
+      pointer-events: none;
+      box-shadow: none;
+    }
+
   </style>
 </head>
 <body>
   <header>
     <h1>🌱 AgriSmart Rwanda</h1>
     <p>District Crop Productivity Explorer</p>
-    <nav aria-label="Main navigation" style="display:flex;gap:16px;flex-wrap:wrap"><a href="./index.html">National dashboard</a><a href="./districts.html">District productivity</a><a href="./insights.html">Agricultural insights</a></nav>
+    <nav class="nav-buttons" aria-label="Main navigation"><a href="./index.html">National dashboard</a><a href="./districts.html">District productivity</a><a href="./insights.html">Agricultural insights</a></nav>
   </header>
 
   <main>
@@ -288,5 +323,22 @@
         showError("Unable to load dataset: " + error.message);
       });
   </script>
+
+  <script>
+    // Disable the navigation button for the page the visitor is already viewing.
+    (() => {
+      const currentPage = window.location.pathname.split("/").pop() || "index.html";
+      document.querySelectorAll(".nav-buttons a[href]").forEach(link => {
+        const targetPage = link.getAttribute("href").split("/").pop().split("?")[0];
+        if (targetPage === currentPage) {
+          link.setAttribute("aria-current", "page");
+          link.setAttribute("aria-disabled", "true");
+          link.setAttribute("tabindex", "-1");
+          link.addEventListener("click", event => event.preventDefault());
+        }
+      });
+    })();
+  </script>
+
 </body>
 </html>
