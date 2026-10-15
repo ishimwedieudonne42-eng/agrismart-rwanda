@@ -136,6 +136,34 @@
     .ranking-table th { background: #f1f7f1; color: #24352a; }
     .ranking-table td:last-child, .ranking-table th:last-child { text-align: right; }
 
+
+    .compare-controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 16px;
+      margin: 18px 0;
+    }
+    .compare-field { display: flex; flex-direction: column; gap: 7px; }
+    .compare-field label { font-weight: 700; }
+    .compare-field select { width: 100%; }
+    .compare-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 14px;
+      margin: 18px 0;
+    }
+    .compare-card {
+      background: #f1f7f1;
+      border: 1px solid #dce9de;
+      border-radius: 10px;
+      padding: 16px;
+      min-width: 0;
+    }
+    .compare-name { color: #526459; font-size: 14px; }
+    .compare-value { color: #17643e; font-size: 24px; font-weight: bold; margin-top: 8px; overflow-wrap: anywhere; }
+    .compare-note { color: #526459; line-height: 1.5; }
+    .compare-chart-container { position: relative; height: 300px; }
+
   </style>
 </head>
 <body>
@@ -196,6 +224,42 @@
       </div>
     </section>
 
+    <section class="card">
+      <h2>Compare two districts</h2>
+      <p>Choose two districts to compare their reported yield for the selected crop. The crop selection above controls this comparison too.</p>
+      <div class="compare-controls">
+        <div class="compare-field">
+          <label for="districtASelect">District A</label>
+          <select id="districtASelect" disabled><option>Loading districts...</option></select>
+        </div>
+        <div class="compare-field">
+          <label for="districtBSelect">District B</label>
+          <select id="districtBSelect" disabled><option>Loading districts...</option></select>
+        </div>
+      </div>
+      <div class="compare-grid">
+        <div class="compare-card">
+          <div class="compare-name" id="districtALabel">District A yield</div>
+          <div class="compare-value" id="districtAYield">—</div>
+        </div>
+        <div class="compare-card">
+          <div class="compare-name" id="districtBLabel">District B yield</div>
+          <div class="compare-value" id="districtBYield">—</div>
+        </div>
+        <div class="compare-card">
+          <div class="compare-name">Absolute difference</div>
+          <div class="compare-value" id="absoluteDifference">—</div>
+        </div>
+        <div class="compare-card">
+          <div class="compare-name">Percentage difference</div>
+          <div class="compare-value" id="percentageDifference">—</div>
+        </div>
+      </div>
+      <p id="comparisonSummary" class="compare-note" role="status">Choose a crop and two districts to compare their yields.</p>
+      <div class="compare-chart-container"><canvas id="comparisonChart"></canvas></div>
+      <p class="compare-note">Percentage difference is calculated relative to District B, when District B has a positive reported yield. Zero or missing values are shown as unavailable for comparison.</p>
+    </section>
+
     <section class="card notice">
       <strong>How to interpret this chart</strong>
       <p>
@@ -214,8 +278,118 @@
   <script>
     let districtData = [];
     let chart = null;
+    let comparisonChart = null;
 
     const cropSelect = document.getElementById("cropSelect");
+    const districtASelect = document.getElementById("districtASelect");
+    const districtBSelect = document.getElementById("districtBSelect");
+
+    function formatYield(value) {
+      return Number.isFinite(value) && value > 0
+        ? value.toLocaleString(undefined, { maximumFractionDigits: 1 }) + " kg/ha"
+        : "Unavailable";
+    }
+
+    function findDistrictYield(districtName, cropName) {
+      return districtData.find(row =>
+        row.district === districtName &&
+        row.crop === cropName &&
+        Number.isFinite(row.yield) &&
+        row.yield > 0
+      );
+    }
+
+    function updateComparison() {
+      const cropName = cropSelect.value;
+      const districtA = districtASelect.value;
+      const districtB = districtBSelect.value;
+      const rowA = findDistrictYield(districtA, cropName);
+      const rowB = findDistrictYield(districtB, cropName);
+
+      document.getElementById("districtALabel").textContent = districtA || "District A";
+      document.getElementById("districtBLabel").textContent = districtB || "District B";
+      document.getElementById("districtAYield").textContent = rowA ? formatYield(rowA.yield) : "Unavailable";
+      document.getElementById("districtBYield").textContent = rowB ? formatYield(rowB.yield) : "Unavailable";
+
+      const absoluteEl = document.getElementById("absoluteDifference");
+      const percentEl = document.getElementById("percentageDifference");
+      const summaryEl = document.getElementById("comparisonSummary");
+
+      if (comparisonChart) {
+        comparisonChart.destroy();
+        comparisonChart = null;
+      }
+
+      if (!districtA || !districtB) {
+        absoluteEl.textContent = "—";
+        percentEl.textContent = "—";
+        summaryEl.textContent = "Select two districts to compare their reported yields.";
+        return;
+      }
+
+      if (districtA === districtB) {
+        absoluteEl.textContent = "—";
+        percentEl.textContent = "—";
+        summaryEl.textContent = "Please select two different districts.";
+        return;
+      }
+
+      if (!rowA || !rowB) {
+        absoluteEl.textContent = "Unavailable";
+        percentEl.textContent = "Unavailable";
+        summaryEl.textContent = "A positive reported yield is not available for one or both selected districts for this crop. Check another crop or district.";
+        return;
+      }
+
+      const difference = Math.abs(rowA.yield - rowB.yield);
+      const percent = ((rowA.yield - rowB.yield) / rowB.yield) * 100;
+      absoluteEl.textContent = difference.toLocaleString(undefined, { maximumFractionDigits: 1 }) + " kg/ha";
+      percentEl.textContent = (percent > 0 ? "+" : "") + percent.toLocaleString(undefined, { maximumFractionDigits: 1 }) + "%";
+      if (rowA.yield > rowB.yield) {
+        summaryEl.textContent = districtA + " reports " + formatYield(difference).replace(" kg/ha", "") +
+          " kg/ha higher yield than " + districtB + " (" +
+          Math.abs(percent).toLocaleString(undefined, { maximumFractionDigits: 1 }) +
+          "% higher relative to District B).";
+      } else if (rowA.yield < rowB.yield) {
+        summaryEl.textContent = districtA + " reports " + difference.toLocaleString(undefined, { maximumFractionDigits: 1 }) +
+          " kg/ha lower yield than " + districtB + " (" +
+          Math.abs(percent).toLocaleString(undefined, { maximumFractionDigits: 1 }) +
+          "% lower relative to District B).";
+      } else {
+        summaryEl.textContent = districtA + " and " + districtB + " have the same reported yield for " + cropName + ".";
+      }
+
+      comparisonChart = new Chart(document.getElementById("comparisonChart"), {
+        type: "bar",
+        data: {
+          labels: [districtA, districtB],
+          datasets: [{
+            label: "Reported yield (kg/ha)",
+            data: [rowA.yield, rowB.yield],
+            backgroundColor: ["#39845a", "#8ab79a"],
+            borderRadius: 5
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: context => formatYield(context.parsed.y)
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: "Yield (kg/ha)" }
+            }
+          }
+        }
+      });
+    }
 
     function showError(message) {
       document.getElementById("status").textContent = message;
@@ -382,9 +556,28 @@
           cropSelect.appendChild(option);
         });
 
+        const districts = [...new Set(districtData.map(row => row.district))].sort();
+        [districtASelect, districtBSelect].forEach(select => {
+          select.innerHTML = "";
+          districts.forEach(district => {
+            const option = document.createElement("option");
+            option.value = district;
+            option.textContent = district;
+            select.appendChild(option);
+          });
+          select.disabled = false;
+        });
+        if (districts.length > 1) districtBSelect.value = districts[1];
+
         cropSelect.disabled = false;
-        cropSelect.addEventListener("change", updateChart);
+        cropSelect.addEventListener("change", () => {
+          updateChart();
+          updateComparison();
+        });
+        districtASelect.addEventListener("change", updateComparison);
+        districtBSelect.addEventListener("change", updateComparison);
         updateChart();
+        updateComparison();
       })
       .catch(error => {
         console.error(error);
