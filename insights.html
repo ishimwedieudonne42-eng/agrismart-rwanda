@@ -85,6 +85,16 @@
         <div class="statbox"><div>Plots with severe erosion</div><div class="stat" id="severeStat">—</div></div>
       </div>
     </section>
+    <section class="card">
+      <h2>District insights summary</h2>
+      <p class="muted">A quick data-coverage summary for the selected district. Availability counts are calculated from the loaded NISR tables; they are not performance scores.</p>
+      <div class="stat-grid">
+        <div class="statbox"><div>Districts covered by both tables</div><div class="stat" id="coverageDistrictCount">—</div></div>
+        <div class="statbox"><div>Selected district</div><div class="stat" id="selectedDistrictSummary">—</div></div>
+        <div class="statbox"><div>Practice indicators available</div><div class="stat" id="practiceAvailableCount">—</div></div>
+        <div class="statbox"><div>Erosion indicators available</div><div class="stat" id="erosionAvailableCount">—</div></div>
+      </div>
+    </section>
     <div class="grid">
       <section class="card">
         <h2>Reported agricultural practices</h2>
@@ -128,6 +138,13 @@ function renderDistrict(name) {
   const e = erosion.find(r => r.district === name);
   if (!p || !e) { document.getElementById('status').textContent = 'No matching record found for this district.'; return; }
   document.getElementById('status').textContent = 'Showing published indicators for ' + name + '.';
+  document.getElementById('selectedDistrictSummary').textContent = name;
+  const practiceFields = [p.land_protected_against_erosion_pct, p.mechanical_equipment_use_pct, p.irrigation_practice_pct, p.agroforestry_practice_pct];
+  const erosionFields = [e.severe_erosion_plots_pct, e.moderate_erosion_plots_pct, e.low_erosion_plots_pct, e.very_low_erosion_plots_pct];
+  document.getElementById('practiceAvailableCount').textContent =
+    practiceFields.filter(value => pct(value) !== null).length + ' / ' + practiceFields.length;
+  document.getElementById('erosionAvailableCount').textContent =
+    erosionFields.filter(value => pct(value) !== null).length + ' / ' + erosionFields.length;
   document.getElementById('protectedStat').textContent = displayPct(p.land_protected_against_erosion_pct);
   document.getElementById('irrigationStat').textContent = displayPct(p.irrigation_practice_pct);
   document.getElementById('agroStat').textContent = displayPct(p.agroforestry_practice_pct);
@@ -150,6 +167,7 @@ async function init() {
     select.innerHTML = '';
     names.forEach(name => { const option = document.createElement('option'); option.value = name; option.textContent = name; select.appendChild(option); });
     if (!names.length) throw new Error('No district names matched across the two datasets.');
+    document.getElementById('coverageDistrictCount').textContent = names.length;
     select.addEventListener('change', () => renderDistrict(select.value));
     renderDistrict(names[0]);
   } catch (err) {
