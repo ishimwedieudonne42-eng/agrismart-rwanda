@@ -114,6 +114,28 @@
       box-shadow: none;
     }
 
+
+    .ranking-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 14px;
+      margin: 18px 0;
+    }
+    .ranking-card {
+      background: #f1f7f1;
+      border: 1px solid #dce9de;
+      border-radius: 10px;
+      padding: 16px;
+    }
+    .ranking-label { color: #526459; font-size: 14px; }
+    .ranking-value { color: #17643e; font-size: 24px; font-weight: bold; margin-top: 8px; overflow-wrap: anywhere; }
+    .ranking-yield { font-size: 14px; margin-top: 6px; }
+    .ranking-table-wrap { overflow-x: auto; }
+    .ranking-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    .ranking-table th, .ranking-table td { padding: 11px 12px; border-bottom: 1px solid #e2e9e3; text-align: left; }
+    .ranking-table th { background: #f1f7f1; color: #24352a; }
+    .ranking-table td:last-child, .ranking-table th:last-child { text-align: right; }
+
   </style>
 </head>
 <body>
@@ -145,10 +167,33 @@
     </section>
 
     <section class="card">
-      <h2>Selected crop summary</h2>
-      <p>Districts with positive reported yield values:</p>
-      <div class="stat" id="districtCount">—</div>
+      <h2>District performance ranking</h2>
+      <p>Rankings are based on the selected crop's positive reported yield values (kg/ha) in NISR SAS 2025 Season B.</p>
+      <div class="ranking-grid">
+        <div class="ranking-card">
+          <div class="ranking-label">Highest reported yield</div>
+          <div class="ranking-value" id="topDistrict">—</div>
+          <div class="ranking-yield" id="topYield">Choose a crop to begin.</div>
+        </div>
+        <div class="ranking-card">
+          <div class="ranking-label">Lowest positive reported yield</div>
+          <div class="ranking-value" id="bottomDistrict">—</div>
+          <div class="ranking-yield" id="bottomYield">Choose a crop to begin.</div>
+        </div>
+        <div class="ranking-card">
+          <div class="ranking-label">Districts included</div>
+          <div class="ranking-value" id="districtCount">—</div>
+          <div class="ranking-yield">Only positive yield values are ranked.</div>
+        </div>
+      </div>
       <p id="summary">Select a crop to view its summary.</p>
+      <h3>Top 5 districts for the selected crop</h3>
+      <div class="ranking-table-wrap">
+        <table class="ranking-table">
+          <thead><tr><th>Rank</th><th>District</th><th>Reported yield (kg/ha)</th></tr></thead>
+          <tbody id="rankingTableBody"><tr><td colspan="3">Select a crop to view rankings.</td></tr></tbody>
+        </table>
+      </div>
     </section>
 
     <section class="card notice">
@@ -190,9 +235,15 @@
       if (chart) chart.destroy();
 
       if (rows.length === 0) {
-        document.getElementById("districtCount").textContent = "0";
+        document.getElementById("districtCount").textContent = "0 / 30";
+        document.getElementById("topDistrict").textContent = "Unavailable";
+        document.getElementById("topYield").textContent = "No positive yield value";
+        document.getElementById("bottomDistrict").textContent = "Unavailable";
+        document.getElementById("bottomYield").textContent = "No positive yield value";
         document.getElementById("summary").textContent =
           "No positive yield values are available for this crop.";
+        document.getElementById("rankingTableBody").innerHTML =
+          '<tr><td colspan="3">No positive reported yields are available to rank.</td></tr>';
         showError("No positive reported yields available for this crop.");
         return;
       }
@@ -237,6 +288,23 @@
 
       document.getElementById("districtCount").textContent =
         rows.length + " / 30";
+
+      const highest = rows[0];
+      const lowest = rows[rows.length - 1];
+      document.getElementById("topDistrict").textContent = highest.district;
+      document.getElementById("topYield").textContent =
+        highest.yield.toLocaleString(undefined, { maximumFractionDigits: 1 }) + " kg/ha";
+      document.getElementById("bottomDistrict").textContent = lowest.district;
+      document.getElementById("bottomYield").textContent =
+        lowest.yield.toLocaleString(undefined, { maximumFractionDigits: 1 }) + " kg/ha";
+
+      const topFive = rows.slice(0, 5);
+      document.getElementById("rankingTableBody").innerHTML = topFive.map((row, index) =>
+        '<tr><td>' + (index + 1) + '</td><td>' +
+        row.district.replace(/[&<>"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[character])) +
+        '</td><td>' + row.yield.toLocaleString(undefined, { maximumFractionDigits: 1 }) +
+        '</td></tr>'
+      ).join("");
 
       const values = rows.map(row => row.yield);
       const average = values.reduce((sum, value) => sum + value, 0)
