@@ -1,0 +1,509 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgriSmart Rwanda | Crop Intelligence</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f7f2;
+      color: #24352a;
+    }
+
+    header {
+      background: #174d32;
+      color: white;
+      padding: 28px 7%;
+    }
+
+    header h1 { margin: 0 0 8px; }
+    header p { margin: 0; color: #d9ebdf; }
+
+    main {
+      max-width: 1100px;
+      margin: 28px auto;
+      padding: 0 20px;
+    }
+
+    .notice {
+      background: #fff8df;
+      border-left: 4px solid #d9a323;
+      padding: 14px;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 22px;
+      margin-bottom: 22px;
+      box-shadow: 0 3px 14px #183c2010;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+    }
+
+    .stat-value {
+      font-size: 28px;
+      font-weight: bold;
+      color: #17643e;
+      margin-top: 10px;
+    }
+
+    select {
+      padding: 10px;
+      border: 1px solid #ccd7ce;
+      border-radius: 6px;
+      background: white;
+      max-width: 100%;
+    }
+
+    .chart-container {
+      position: relative;
+      height: 380px;
+    }
+
+    #status { color: #526459; }
+    footer {
+      text-align: center;
+      padding: 25px;
+      color: #657469;
+      font-size: 13px;
+    }
+  
+    .nav-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .nav-buttons a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 11px 16px;
+      border: 2px solid #d9ebdf;
+      border-radius: 8px;
+      background: #2b7049;
+      color: #fff;
+      font-weight: 700;
+      text-decoration: none;
+      transition: background .2s ease, transform .2s ease;
+    }
+    .nav-buttons a:hover:not([aria-disabled="true"]),
+    .nav-buttons a:focus-visible:not([aria-disabled="true"]) {
+      background: #39845a;
+      transform: translateY(-1px);
+    }
+    .nav-buttons a[aria-disabled="true"] {
+      background: #e1e8e2;
+      color: #536359;
+      border-color: #e1e8e2;
+      cursor: not-allowed;
+      opacity: .85;
+      pointer-events: none;
+      box-shadow: none;
+    }
+
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🌱 AgriSmart Rwanda</h1>
+    <p>Agricultural data intelligence for Rwanda</p>
+    <nav class="nav-buttons" aria-label="Main navigation"><a href="./index.html">National dashboard</a><a href="./districts.html">District productivity</a><a href="./insights.html">Agricultural insights</a><a href="./about.html">Project overview</a><a href="./data-sources.html">Data sources</a></nav>
+  </header>
+
+  <main>
+    <section class="card" aria-label="Explore AgriSmart dashboards" style="margin-top:0">
+      <h2 style="margin-top:0">Explore AgriSmart Rwanda</h2>
+      <p>Choose a dashboard:</p>
+      <nav class="nav-buttons" aria-label="Dashboard navigation">
+        <a href="./index.html">National dashboard</a>
+        <a href="./districts.html">District productivity</a>
+        <a href="./insights.html">Agricultural insights</a>
+      </nav>
+    </section>
+    <div class="notice">
+      <strong>Data note:</strong> This prototype uses published NISR
+      Season B crop statistics. Results describe reported data and
+      do not prove why production changes. Crop categories may overlap.
+    </div>
+
+    <section class="stats">
+      <div class="card">
+        <div>Crop categories in 2025</div>
+        <div class="stat-value" id="cropCount">—</div>
+      </div>
+      <div class="card">
+        <div>Year of focus</div>
+        <div class="stat-value">2025</div>
+      </div>
+      <div class="card">
+        <div>Survey season</div>
+        <div class="stat-value">B</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Crop production in 2025</h2>
+      <p>Choose how many crop categories to display.</p>
+      <label for="limit">Number of categories: </label>
+      <select id="limit">
+        <option value="5">Top 5</option>
+        <option value="10" selected>Top 10</option>
+        <option value="15">Top 15</option>
+        <option value="100">All available</option>
+      </select>
+      <button id="downloadCropData" type="button" style="margin-left:8px;padding:10px 14px;border:0;border-radius:6px;background:#17643e;color:white;font-weight:bold;cursor:pointer;">Download displayed data (CSV)</button>
+      <p>Download the crop categories currently displayed in the production chart, including their reported area and yield values.</p>
+      <p id="status">Loading the crop dataset...</p>
+      <div class="chart-container">
+        <canvas id="productionChart"></canvas>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Crop Performance Insights — 2025 Season B</h2>
+      <p>Explore the highest reported yield, largest reported production, and the difference between cultivated and harvested area. Rankings describe the published crop categories and should not be interpreted as proof of causes or overall farm profitability.</p>
+      <div class="stats">
+        <div class="card">
+          <div>Highest reported yield</div>
+          <div class="stat-value" id="highestYieldCrop">—</div>
+          <p id="highestYieldValue">Waiting for data...</p>
+        </div>
+        <div class="card">
+          <div>Largest reported production</div>
+          <div class="stat-value" id="productionLeader">—</div>
+          <p id="productionLeaderValue">Waiting for data...</p>
+        </div>
+        <div class="card">
+          <div>Largest area gap</div>
+          <div class="stat-value" id="areaGapCrop">—</div>
+          <p id="areaGapValue">Waiting for data...</p>
+        </div>
+      </div>
+      <h3>Reported yield by crop</h3>
+      <p>Yield is reported in metric tonnes per harvested hectare (t/ha).</p>
+      <div class="chart-container"><canvas id="yieldChart"></canvas></div>
+      <h3>Harvested area compared with cultivated area</h3>
+      <p>Area values are in hectares. A difference does not by itself explain why an area was not harvested.</p>
+      <div class="chart-container"><canvas id="areaChart"></canvas></div>
+    </section>
+
+    <section class="card">
+      <h2>About this dashboard</h2>
+      <p>
+        This first version summarizes crop production using a prepared
+        dataset. The next development stages will add district comparisons,
+        yield analysis, data validation and source documentation.
+      </p>
+      <p>
+        Source: National Institute of Statistics of Rwanda (NISR),
+        Seasonal Agricultural Survey 2025, Season B.
+      </p>
+      <a href="https://microdatabk.statistics.gov.rw/catalog/124"
+         target="_blank" rel="noopener noreferrer">
+        View NISR survey catalog
+      </a>
+    </section>
+  </main>
+
+  <footer>
+    AgriSmart Rwanda · Student data science project
+  </footer>
+
+  <script>
+    let cropRows = [];
+    let productionChart = null;
+    let yieldChart = null;
+    let areaChart = null;
+
+    const csvPath =
+      "data/processed/agrismart_season_b_crop_data.csv";
+
+    function showError(message) {
+      document.getElementById("status").textContent = message;
+    }
+
+    function getDisplayedCrops() {
+      const limit = Number(document.getElementById("limit").value);
+      return cropRows
+        .filter(row =>
+          row.crop &&
+          Number.isFinite(row.production_mt) &&
+          row.production_mt >= 0
+        )
+        .sort((a, b) => b.production_mt - a.production_mt)
+        .slice(0, limit);
+    }
+
+    function downloadDisplayedCropData() {
+      const rows = getDisplayedCrops();
+      if (rows.length === 0) {
+        showError("There is no crop data to download yet.");
+        return;
+      }
+
+      const columns = [
+        ["crop", "Crop"],
+        ["production_mt", "Production_metric_tonnes"],
+        ["cultivated_area_ha", "Cultivated_area_ha"],
+        ["harvested_area_ha", "Harvested_area_ha"],
+        ["yield_mt_per_ha", "Yield_metric_tonnes_per_ha"]
+      ];
+      const csvCell = value => {
+        const safe = value === null || value === undefined ? "" : String(value);
+        return '"' + safe.replace(/"/g, '""') + '"';
+      };
+      const csv = [
+        columns.map(column => csvCell(column[1])).join(","),
+        ...rows.map(row => columns.map(column => csvCell(row[column[0]])).join(","))
+      ].join("\r\n");
+      const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "agrismart_displayed_crop_data_2025_season_b.csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function drawChart() {
+      const topCrops = getDisplayedCrops();
+
+      if (productionChart) {
+        productionChart.destroy();
+      }
+
+      productionChart = new Chart(
+        document.getElementById("productionChart"),
+        {
+          type: "bar",
+          data: {
+            labels: topCrops.map(row => row.crop),
+            datasets: [{
+              label: "Reported production (metric tonnes)",
+              data: topCrops.map(row => row.production_mt),
+              backgroundColor: "#39845a",
+              borderRadius: 5
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: "y",
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: context =>
+                    context.parsed.x.toLocaleString() + " tonnes"
+                }
+              }
+            },
+            scales: {
+              x: {
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: "Production (metric tonnes)"
+                }
+              }
+            }
+          }
+        }
+      );
+
+      document.getElementById("status").textContent =
+        "Showing " + topCrops.length +
+        " crop categories from the 2025 Season B dataset.";
+    }
+
+    function drawCropInsights() {
+      const validRows = cropRows.filter(row =>
+        row.crop &&
+        Number.isFinite(row.production_mt) && row.production_mt >= 0 &&
+        Number.isFinite(row.cultivated_area_ha) && row.cultivated_area_ha >= 0 &&
+        Number.isFinite(row.harvested_area_ha) && row.harvested_area_ha >= 0 &&
+        Number.isFinite(row.yield_mt_per_ha) && row.yield_mt_per_ha > 0
+      );
+
+      if (validRows.length === 0) return;
+
+      const byYield = [...validRows].sort((a, b) => b.yield_mt_per_ha - a.yield_mt_per_ha);
+      const byProduction = [...validRows].sort((a, b) => b.production_mt - a.production_mt);
+      const byAreaGap = [...validRows]
+        .map(row => ({ ...row, area_gap_ha: row.cultivated_area_ha - row.harvested_area_ha }))
+        .filter(row => row.area_gap_ha >= 0)
+        .sort((a, b) => b.area_gap_ha - a.area_gap_ha);
+
+      document.getElementById("highestYieldCrop").textContent = byYield[0].crop;
+      document.getElementById("highestYieldValue").textContent =
+        byYield[0].yield_mt_per_ha.toLocaleString(undefined, { maximumFractionDigits: 2 }) + " t/ha";
+      document.getElementById("productionLeader").textContent = byProduction[0].crop;
+      document.getElementById("productionLeaderValue").textContent =
+        byProduction[0].production_mt.toLocaleString(undefined, { maximumFractionDigits: 0 }) + " metric tonnes";
+      if (byAreaGap.length > 0) {
+        document.getElementById("areaGapCrop").textContent = byAreaGap[0].crop;
+        document.getElementById("areaGapValue").textContent =
+          byAreaGap[0].area_gap_ha.toLocaleString(undefined, { maximumFractionDigits: 0 }) + " hectares";
+      }
+
+      if (yieldChart) yieldChart.destroy();
+      yieldChart = new Chart(document.getElementById("yieldChart"), {
+        type: "bar",
+        data: {
+          labels: byYield.map(row => row.crop),
+          datasets: [{
+            label: "Reported yield (t/ha)",
+            data: byYield.map(row => row.yield_mt_per_ha),
+            backgroundColor: "#39845a",
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: "y",
+          plugins: { legend: { display: false } },
+          scales: { x: { beginAtZero: true, title: { display: true, text: "Metric tonnes per hectare" } } }
+        }
+      });
+
+      if (areaChart) areaChart.destroy();
+      areaChart = new Chart(document.getElementById("areaChart"), {
+        type: "bar",
+        data: {
+          labels: validRows.map(row => row.crop),
+          datasets: [
+            {
+              label: "Cultivated area (ha)",
+              data: validRows.map(row => row.cultivated_area_ha),
+              backgroundColor: "#8abf9c"
+            },
+            {
+              label: "Harvested area (ha)",
+              data: validRows.map(row => row.harvested_area_ha),
+              backgroundColor: "#17643e"
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: "y",
+          plugins: { legend: { position: "bottom" } },
+          scales: { x: { beginAtZero: true, title: { display: true, text: "Area (hectares)" } } }
+        }
+      });
+    }
+
+    fetch(csvPath)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(
+            "Dataset not found. Check the CSV file location in GitHub."
+          );
+        }
+        return response.text();
+      })
+      .then(csvText => {
+        const parsed = Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+          transformHeader: header =>
+            header.trim().replace(/^\uFEFF/, "")
+        });
+
+        if (parsed.errors.length > 0) {
+          console.warn("CSV parsing warnings:", parsed.errors);
+        }
+
+        const fields = parsed.meta.fields || [];
+        const required = [
+          "crop", "year", "season", "production_mt"
+        ];
+
+        const missing = required.filter(
+          column => !fields.includes(column)
+        );
+
+        if (missing.length > 0) {
+          throw new Error(
+            "CSV is missing expected columns: " + missing.join(", ")
+          );
+        }
+
+        cropRows = parsed.data
+          .filter(row =>
+            Number(row.year) === 2025 &&
+            String(row.season).trim().toUpperCase() === "B"
+          )
+          .map(row => ({
+            crop: String(row.crop).trim(),
+            production_mt: Number(row.production_mt),
+            cultivated_area_ha: Number(row.cultivated_area_ha),
+            harvested_area_ha: Number(row.harvested_area_ha),
+            yield_mt_per_ha: Number(row.yield_mt_per_ha)
+          }));
+
+        if (cropRows.length === 0) {
+          throw new Error(
+            "No 2025 Season B records found. Check the CSV values."
+          );
+        }
+
+        document.getElementById("cropCount").textContent =
+          new Set(cropRows.map(row => row.crop)).size;
+
+        drawChart();
+        drawCropInsights();
+      })
+      .catch(error => {
+        console.error(error);
+        showError("Unable to load data: " + error.message);
+      });
+
+    document.getElementById("limit").addEventListener(
+      "change", () => {
+        if (cropRows.length > 0) drawChart();
+      }
+    );
+
+    document.getElementById("downloadCropData").addEventListener(
+      "click", downloadDisplayedCropData
+    );
+  </script>
+
+  <script>
+    // Disable the navigation button for the page the visitor is already viewing.
+    (() => {
+      const currentPage = window.location.pathname.split("/").pop() || "index.html";
+      document.querySelectorAll(".nav-buttons a[href]").forEach(link => {
+        const targetPage = link.getAttribute("href").split("/").pop().split("?")[0];
+        if (targetPage === currentPage) {
+          link.setAttribute("aria-current", "page");
+          link.setAttribute("aria-disabled", "true");
+          link.setAttribute("tabindex", "-1");
+          link.addEventListener("click", event => event.preventDefault());
+        }
+      });
+    })();
+  </script>
+
+</body>
+</html>
