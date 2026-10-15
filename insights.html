@@ -217,8 +217,8 @@ function downloadInsightsComparison() {
     ['Source', 'NISR Seasonal Agricultural Survey 2025, Season B, Tables 29 and 33'],
     ['Note', 'Descriptive district-level indicators; differences do not establish cause and effect. Blank cells indicate unavailable source values.']
   ];
-  const csv = rows.map(row => row.map(csvCell).join(',')).join('\\r\\n');
-  const blob = new Blob(['\\uFEFF', csv], { type: 'text/csv;charset=utf-8;' });
+  const csv = rows.map(row => row.map(csvCell).join(',')).join('\r\n');
+  const blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
