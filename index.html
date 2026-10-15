@@ -183,7 +183,16 @@
         // where commas are used as decimal separators. Keep quoted values and CRLF rows.
         const csv = [
           columns.map(column => escapeCsv(column[1])).join(';'),
-          ...season2025Rows.map(row => columns.map(column => escapeCsv(row[column[0]])).join(';'))
+          ...season2025Rows.map(row => columns.map(column => {
+            const key = column[0];
+            const value = row[key];
+            const numericColumns = ['cultivated_area_ha', 'harvested_area_ha', 'production_mt', 'yield_mt_per_ha'];
+            // Format exported measurements to two decimal places without changing the source dataset.
+            if (numericColumns.includes(key) && value !== '' && value != null && Number.isFinite(Number(value))) {
+              return escapeCsv(Number(value).toFixed(2));
+            }
+            return escapeCsv(value);
+          }).join(';'))
         ].join(String.fromCharCode(13, 10));
         const blob = new Blob([String.fromCharCode(0xFEFF), csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
