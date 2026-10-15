@@ -30,6 +30,11 @@
     .card a { color: var(--green2); font-weight: 700; }
     .number { font-size: 1.5rem; margin-bottom: 8px; }
     .notice { margin-top: 22px; background: #fff8df; border-left: 4px solid #d9a323; padding: 15px 18px; border-radius: 4px; }
+
+    .insight-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 16px; margin-top: 16px; }
+    .chart-card h3 { color: var(--green); margin: 0 0 4px; }
+    .chart-card p { margin: 0 0 12px; color: #657469; font-size: .92rem; }
+    .chart-wrap { position: relative; height: 310px; width: 100%; }
     footer { text-align: center; padding: 22px; color: #657469; font-size: .9rem; }
     @media (max-width: 600px) { header { padding: 20px; } main { padding: 18px 14px 32px; } .hero { border-radius: 12px; } .btn { width: 100%; } }
   </style>
@@ -76,6 +81,28 @@
     </section>
     <p class="notice"><strong>How to read these findings:</strong> These are descriptive year-to-year changes in reported production, not explanations of why changes occurred. Consider harvested area and yield alongside production. Source: <a href="https://microdatabk.statistics.gov.rw/catalog/124" target="_blank" rel="noopener">NISR Seasonal Agricultural Survey 2025 catalogue</a>.</p>
 
+    <h2 class="section-title">Crop Performance Insights: Season B 2025</h2>
+    <p>These summaries are calculated from the processed NISR Table 6 dataset. Use them to explore reported production, yield, and the difference between cultivated and harvested area.</p>
+    <section class="grid" aria-label="Crop performance summary" id="cropSummary">
+      <article class="card"><div class="number">🌾</div><h3>Production leader</h3><p id="productionLeader" aria-live="polite">Loading crop data…</p></article>
+      <article class="card"><div class="number">📏</div><h3>Highest reported yield</h3><p id="yieldLeader" aria-live="polite">Loading crop data…</p></article>
+      <article class="card"><div class="number">🌱</div><h3>Largest cultivated area</h3><p id="areaLeader" aria-live="polite">Loading crop data…</p></article>
+    </section>
+    <section class="insight-charts" aria-label="Crop performance charts">
+      <article class="card chart-card">
+        <h3>Top 5 crops by reported production</h3>
+        <p>Season B 2025 · tonnes</p>
+        <div class="chart-wrap"><canvas id="productionChart" role="img" aria-label="Bar chart of the five crops with the highest reported production in Season B 2025"></canvas></div>
+      </article>
+      <article class="card chart-card">
+        <h3>Cultivated vs harvested area</h3>
+        <p>Five crops with the largest cultivated area · Season B 2025 · hectares</p>
+        <div class="chart-wrap"><canvas id="areaChart" role="img" aria-label="Bar chart comparing cultivated and harvested area for five crops"></canvas></div>
+      </article>
+    </section>
+    <p id="cropInsightStatus" class="notice" role="status">Loading crop performance data…</p>
+    <p class="notice"><strong>Interpretation note:</strong> These are descriptive statistics, not explanations of why crop performance differs. Some crop categories may overlap in the source classification. Source: <a href="https://microdatabk.statistics.gov.rw/catalog/124" target="_blank" rel="noopener">NISR Seasonal Agricultural Survey 2025 catalogue</a>.</p>
+
     <h2 class="section-title">Explore the platform</h2>
     <section class="grid" aria-label="Platform sections">
       <article class="card">
@@ -120,6 +147,83 @@
       <strong>Important data note:</strong> The dashboards describe published survey statistics; they do not establish the causes of differences between crops or districts. Some crop categories may overlap, and district-level results should be interpreted in the context of the source tables.
     </section>
   </main>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script>
+    (function () {
+      const status = document.getElementById('cropInsightStatus');
+      const number = value => new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(value);
+      const tonnes = value => number(value) + ' tonnes';
+      const hectares = value => number(value) + ' ha';
+
+      Papa.parse('./data/processed/agrismart_season_b_crop_data.csv', {
+        download: true,
+        header: true,
+        dynamicTyping: true,
+        skipEmptyLines: true,
+        complete: function (result) {
+          const rows = result.data.filter(row =>
+            Number(row.year) === 2025 &&
+            row.crop &&
+            Number.isFinite(Number(row.production_mt)) &&
+            Number.isFinite(Number(row.cultivated_area_ha)) &&
+            Number.isFinite(Number(row.harvested_area_ha)) &&
+            Number.isFinite(Number(row.yield_mt_per_ha))
+          );
+          if (!rows.length) {
+            status.textContent = 'Crop performance data could not be loaded. Please refresh the page or open the National Dashboard.';
+            return;
+          }
+
+          const productionRank = [...rows].sort((a, b) => Number(b.production_mt) - Number(a.production_mt));
+          const yieldRank = rows.filter(row => Number(row.yield_mt_per_ha) > 0).sort((a, b) => Number(b.yield_mt_per_ha) - Number(a.yield_mt_per_ha));
+          const areaRank = [...rows].sort((a, b) => Number(b.cultivated_area_ha) - Number(a.cultivated_area_ha));
+          document.getElementById('productionLeader').textContent = productionRank[0].crop + ' — ' + tonnes(Number(productionRank[0].production_mt)) + ' reported.';
+          document.getElementById('yieldLeader').textContent = yieldRank[0].crop + ' — ' + number(Number(yieldRank[0].yield_mt_per_ha)) + ' tonnes per hectare reported.';
+          document.getElementById('areaLeader').textContent = areaRank[0].crop + ' — ' + hectares(Number(areaRank[0].cultivated_area_ha)) + ' reported.';
+
+          if (typeof Chart === 'undefined') {
+            status.textContent = 'Summary figures loaded, but the charts could not load. Check your internet connection and refresh to load the chart library.';
+            return;
+          }
+
+          new Chart(document.getElementById('productionChart'), {
+            type: 'bar',
+            data: {
+              labels: productionRank.slice(0, 5).map(row => row.crop),
+              datasets: [{ label: 'Production (tonnes)', data: productionRank.slice(0, 5).map(row => Number(row.production_mt)), backgroundColor: '#2b7049' }]
+            },
+            options: {
+              responsive: true, maintainAspectRatio: false,
+              plugins: { legend: { display: false }, tooltip: { callbacks: { label: context => tonnes(context.raw) } } },
+              scales: { y: { beginAtZero: true, ticks: { callback: value => number(value) } } }
+            }
+          });
+
+          const areaTop = areaRank.slice(0, 5);
+          new Chart(document.getElementById('areaChart'), {
+            type: 'bar',
+            data: {
+              labels: areaTop.map(row => row.crop),
+              datasets: [
+                { label: 'Cultivated area (ha)', data: areaTop.map(row => Number(row.cultivated_area_ha)), backgroundColor: '#2b7049' },
+                { label: 'Harvested area (ha)', data: areaTop.map(row => Number(row.harvested_area_ha)), backgroundColor: '#9ac6a5' }
+              ]
+            },
+            options: {
+              responsive: true, maintainAspectRatio: false,
+              plugins: { tooltip: { callbacks: { label: context => context.dataset.label + ': ' + hectares(context.raw) } } },
+              scales: { y: { beginAtZero: true, ticks: { callback: value => number(value) } } }
+            }
+          });
+          status.textContent = 'Crop performance insights loaded from the processed NISR Table 6 dataset for Season B 2025.';
+        },
+        error: function () {
+          status.textContent = 'Could not load the crop data file. Please refresh the page or open the Data Sources page to check the dataset.';
+        }
+      });
+    })();
+  </script>
   <footer>AgriSmart Rwanda · Student data-intelligence prototype · Source: NISR agricultural survey statistics</footer>
 </body>
 </html>
