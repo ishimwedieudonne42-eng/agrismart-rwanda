@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Explore Rwanda's published agricultural statistics with AgriSmart Rwanda's crop and district dashboards.">
+  <title>AgriSmart Rwanda | Agricultural Intelligence</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root { --green: #174d32; --green2: #2b7049; --light: #e5f1e7; --ink: #24352a; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f4f7f2; color: var(--ink); line-height: 1.6; }
+    header { background: var(--green); color: white; padding: 22px 7%; }
+    .brand { font-size: 1.35rem; font-weight: 700; }
+    header p { color: #d9ebdf; margin: 4px 0 0; }
+    main { max-width: 1120px; margin: 0 auto; padding: 28px 20px 45px; }
+    .hero { background: linear-gradient(135deg, #e5f1e7, #f9fcf8); border: 1px solid #cfe2d2; border-radius: 18px; padding: clamp(24px, 5vw, 54px); }
+    .eyebrow { color: var(--green2); font-size: .82rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+    h1 { color: var(--green); font-size: clamp(2rem, 5vw, 3.3rem); line-height: 1.12; margin: 10px 0 18px; max-width: 780px; }
+    .hero p { max-width: 760px; font-size: 1.08rem; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; padding: 12px 18px; border-radius: 9px; font-weight: 700; text-decoration: none; border: 2px solid var(--green2); }
+    .btn.primary { color: white; background: var(--green2); }
+    .btn.secondary { color: var(--green); background: white; }
+    .btn:hover, .btn:focus-visible { filter: brightness(1.08); outline-offset: 3px; }
+    .section-title { margin: 34px 0 14px; color: var(--green); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+    .card { background: white; border: 1px solid #e0e9e1; border-radius: 13px; padding: 22px; box-shadow: 0 3px 14px #183c2008; }
+    .card h3 { color: var(--green); margin: 0 0 8px; }
+    .card p { margin: 0 0 16px; }
+    .card a { color: var(--green2); font-weight: 700; }
+    .number { font-size: 1.5rem; margin-bottom: 8px; }
+    .notice { margin-top: 22px; background: #fff8df; border-left: 4px solid #d9a323; padding: 15px 18px; border-radius: 4px; }
+    footer { text-align: center; padding: 22px; color: #657469; font-size: .9rem; }
+    @media (max-width: 600px) { header { padding: 20px; } main { padding: 18px 14px 32px; } .hero { border-radius: 12px; } .btn { width: 100%; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">🌱 AgriSmart Rwanda</div>
+    <p>Explore agricultural statistics. Discover district-level patterns.</p>
+  </header>
+  <main>
+    <section class="hero">
+      <div class="eyebrow">Agricultural data intelligence</div>
+      <h1>Turn Rwanda's agricultural statistics into clearer insights.</h1>
+      <p>AgriSmart Rwanda is a student-built data exploration platform using published National Institute of Statistics of Rwanda (NISR) agricultural survey tables. Explore crop production, compare reported yields across districts, and review agricultural practice and erosion indicators.</p>
+      <div class="actions">
+        <a class="btn primary" href="./index.html">Open national dashboard →</a>
+        <a class="btn secondary" href="./about.html">Learn about the project</a>
+      </div>
+    </section>
+
+    <h2 class="section-title">Explore the platform</h2>
+    <section class="grid" aria-label="Platform sections">
+      <article class="card">
+        <div class="number" aria-hidden="true">📊</div>
+        <h3>National dashboard</h3>
+        <p>Review national crop production indicators and compare reported crop performance.</p>
+        <a href="./index.html">Explore national data →</a>
+      </article>
+      <article class="card">
+        <div class="number" aria-hidden="true">🗺️</div>
+        <h3>District productivity</h3>
+        <p>Select a crop, rank districts by reported yield, and compare two districts side by side.</p>
+        <a href="./districts.html">Compare districts →</a>
+      </article>
+      <article class="card">
+        <div class="number" aria-hidden="true">🌾</div>
+        <h3>Agricultural insights</h3>
+        <p>Explore reported agricultural practices and erosion indicators across districts.</p>
+        <a href="./insights.html">View insights →</a>
+      </article>
+      <article class="card">
+        <div class="number" aria-hidden="true">📚</div>
+        <h3>Data sources and method</h3>
+        <p>Check the official source tables, data preparation notes, and interpretation limits.</p>
+        <a href="./data-sources.html">Review data sources →</a>
+      </article>
+    </section>
+
+    <section class="notice">
+      <strong>Important data note:</strong> The dashboards describe published survey statistics; they do not establish the causes of differences between crops or districts. Some crop categories may overlap, and district-level results should be interpreted in the context of the source tables.
+    </section>
+  </main>
+  <footer>AgriSmart Rwanda · Student data-intelligence prototype · Source: NISR agricultural survey statistics</footer>
+</body>
+</html>
