@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Data sources, table references, dataset files, and interpretation notes for AgriSmart Rwanda.">
+  <title>Data Sources | AgriSmart Rwanda</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f4f7f2; color: #24352a; line-height: 1.65; }
+    header { background: #174d32; color: white; padding: 28px 7%; }
+    header h1 { margin: 0 0 8px; }
+    header p { margin: 0; color: #d9ebdf; }
+    main { max-width: 1100px; margin: 28px auto; padding: 0 20px; }
+    .card { background: white; border-radius: 12px; padding: 22px; margin-bottom: 20px; box-shadow: 0 3px 14px #183c2010; }
+    h2 { color: #174d32; margin-top: 0; }
+    h3 { color: #276442; }
+    .nav-buttons { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+    .nav-buttons a { display: inline-flex; align-items: center; justify-content: center; padding: 11px 16px; border: 2px solid #d9ebdf; border-radius: 8px; background: #2b7049; color: #fff; font-weight: 700; text-decoration: none; transition: background .2s ease, transform .2s ease; }
+    .nav-buttons a:hover:not([aria-disabled="true"]), .nav-buttons a:focus-visible:not([aria-disabled="true"]) { background: #39845a; transform: translateY(-1px); }
+    .nav-buttons a[aria-disabled="true"] { background: #e1e8e2; color: #536359; border-color: #e1e8e2; cursor: not-allowed; opacity: .85; pointer-events: none; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 680px; }
+    th, td { padding: 12px; text-align: left; vertical-align: top; border-bottom: 1px solid #e1e9e2; }
+    th { background: #e7f1e8; color: #24352a; }
+    code { background: #f1f7f1; padding: 2px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+    .notice { background: #fff8df; border-left: 4px solid #d9a323; padding: 14px; }
+    a { color: #17643e; }
+    footer { text-align: center; padding: 25px; color: #657469; font-size: 13px; }
+    @media (max-width: 600px) { header { padding: 24px 20px; } .card { padding: 18px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🌱 AgriSmart Rwanda</h1>
+    <p>Data sources, dataset inventory, and references</p>
+    <nav class="nav-buttons" aria-label="Main navigation">
+      <a href="./index.html">National dashboard</a>
+      <a href="./districts.html">District productivity</a>
+      <a href="./insights.html">Agricultural insights</a>
+      <a href="./about.html">Project overview</a>
+      <a href="./data-sources.html">Data sources</a>
+    </nav>
+  </header>
+  <main>
+    <section class="card">
+      <h2>Purpose of this page</h2>
+      <p>This page documents the published data source behind AgriSmart Rwanda and explains how selected tables are used by the prototype. The project uses prepared CSV files derived from NISR tables; users should consult the original publication for full definitions, survey notes, and context.</p>
+      <p><strong>Primary source:</strong> National Institute of Statistics of Rwanda (NISR), Seasonal Agricultural Survey (SAS) 2025, Season B.</p>
+      <p><a href="https://microdatabk.statistics.gov.rw/catalog/124" target="_blank" rel="noopener noreferrer">Open the official NISR survey catalogue</a></p>
+    </section>
+
+    <section class="card">
+      <h2>1. Referenced source tables</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Table</th><th>Information used</th><th>How AgriSmart uses it</th><th>Dashboard</th></tr></thead>
+          <tbody>
+            <tr><td>Table 6</td><td>National crop cultivated area, harvested area, production, and yield comparisons across reported years.</td><td>National crop overview and comparisons where represented in the prepared crop dataset.</td><td>National dashboard</td></tr>
+            <tr><td>Table 9</td><td>Cultivated area by crop and district.</td><td>District-level area information for prepared crop records and supporting analysis.</td><td>Data preparation / national crop data</td></tr>
+            <tr><td>Table 10</td><td>Harvested area by crop and district.</td><td>Supports area comparisons and interpretation of cultivated versus harvested area where available.</td><td>Data preparation / national crop data</td></tr>
+            <tr><td>Table 11</td><td>Average crop yield by district.</td><td>District crop yield charts, positive-yield rankings, and two-district comparisons.</td><td>District productivity</td></tr>
+            <tr><td>Table 13</td><td>Crop production by crop and district.</td><td>Supports district crop production data preparation where included in prepared records.</td><td>Data preparation / national crop data</td></tr>
+            <tr><td>Table 29</td><td>Selected agricultural-practice indicators by district.</td><td>Shows reported practices such as land protection against erosion, mechanical equipment use, irrigation, and agroforestry.</td><td>Agricultural insights</td></tr>
+            <tr><td>Table 33</td><td>Reported plot erosion classifications by district.</td><td>Shows the distribution of reported erosion categories and supports descriptive district comparisons.</td><td>Agricultural insights</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>2. Prepared datasets used by the website</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>CSV file</th><th>Purpose</th><th>Used by</th></tr></thead>
+          <tbody>
+            <tr><td><code>data/processed/agrismart_season_b_crop_data.csv</code></td><td>Prepared national crop indicators used for production, yield, and area charts.</td><td><a href="./index.html">National dashboard</a></td></tr>
+            <tr><td><code>data/processed/agrismart_district_crop_yield_2025.csv</code></td><td>District and crop yield records, including the reported yield value and season metadata.</td><td><a href="./districts.html">District productivity</a></td></tr>
+            <tr><td><code>data/processed/agrismart_district_agricultural_practices_2025.csv</code></td><td>District-level agricultural-practice percentages.</td><td><a href="./insights.html">Agricultural insights</a></td></tr>
+            <tr><td><code>data/processed/agrismart_district_erosion_2025.csv</code></td><td>District-level percentages for the reported plot erosion classifications.</td><td><a href="./insights.html">Agricultural insights</a></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="notice"><strong>File note:</strong> These are prepared project datasets, not the original NISR workbook files. For exact definitions and validation, compare the values and labels with the corresponding original source tables.</p>
+    </section>
+
+    <section class="card">
+      <h2>3. Data handling and interpretation rules</h2>
+      <ul>
+        <li>Use the survey year and season specified by the dataset; the current district explorer focuses on 2025 Season B.</li>
+        <li>Missing values are not automatically treated as zero. A blank or unavailable value should remain distinct from a reported zero.</li>
+        <li>The district yield explorer ranks positive reported yield values; zero and missing values are not included in positive-yield rankings until verified against the original table.</li>
+        <li>Crop categories may overlap. Do not add crop totals together unless the source confirms that the categories are mutually exclusive.</li>
+        <li>District comparisons are descriptive. They do not show that agricultural practices caused yield or erosion differences.</li>
+        <li>Check units carefully: district crop yield is displayed in kilograms per hectare (kg/ha); national crop yield in the national dashboard is displayed in metric tonnes per hectare (t/ha).</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>4. Suggested citation</h2>
+      <p>National Institute of Statistics of Rwanda (NISR). <em>Seasonal Agricultural Survey 2025, Season B.</em> Consult the official catalogue for the publication and supporting documentation.</p>
+      <p><a href="https://microdatabk.statistics.gov.rw/catalog/124" target="_blank" rel="noopener noreferrer">https://microdatabk.statistics.gov.rw/catalog/124</a></p>
+      <p>When presenting results, state which table, year, season, indicator, and unit you used. Do not describe an association or difference as a cause unless supported by appropriate evidence.</p>
+    </section>
+    <section class="card">
+      <h2>Explore the project</h2>
+      <nav class="nav-buttons" aria-label="Dashboard links">
+        <a href="./index.html">National dashboard</a>
+        <a href="./districts.html">District productivity</a>
+        <a href="./insights.html">Agricultural insights</a>
+        <a href="./about.html">Project overview</a>
+      </nav>
+    </section>
+  </main>
+  <footer>AgriSmart Rwanda · Student data science project · Primary source: NISR SAS 2025, Season B</footer>
+  <script>
+    (() => {
+      const currentPage = window.location.pathname.split("/").pop() || "index.html";
+      document.querySelectorAll(".nav-buttons a[href]").forEach(link => {
+        const targetPage = link.getAttribute("href").split("/").pop().split("?")[0];
+        if (targetPage === currentPage) {
+          link.setAttribute("aria-current", "page");
+          link.setAttribute("aria-disabled", "true");
+          link.setAttribute("tabindex", "-1");
+          link.addEventListener("click", event => event.preventDefault());
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
