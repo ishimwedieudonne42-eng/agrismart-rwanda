@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Explore evidence-based agricultural questions and district priorities using NISR Rwanda Season B 2025 data.">
+  <title>Agricultural Recommendations | AgriSmart Rwanda</title>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f4f7f2; color: #24352a; line-height: 1.6; }
+    header { background: #174d32; color: white; padding: 24px 6%; }
+    header h1 { margin: 0 0 8px; }
+    header p { margin: 0; color: #d9ebdf; }
+    main { max-width: 1150px; margin: 28px auto; padding: 0 18px 30px; }
+    .nav-buttons { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+    .nav-buttons a { display: inline-flex; align-items: center; justify-content: center; padding: 11px 15px; border: 2px solid #d9ebdf; border-radius: 8px; background: #2b7049; color: white; font-weight: 700; text-decoration: none; }
+    .nav-buttons a:hover, .nav-buttons a:focus-visible { background: #39845a; }
+    .nav-buttons a[aria-current="page"] { background: #e1e8e2; color: #536359; border-color: #e1e8e2; pointer-events: none; }
+    .card { background: white; border-radius: 12px; padding: 22px; margin-bottom: 20px; box-shadow: 0 3px 14px #183c2010; }
+    .hero { background: #e5f1e7; border: 1px solid #cfe2d2; }
+    h2 { color: #174d32; margin-top: 0; }
+    h3 { color: #276442; margin-top: 0; }
+    .muted { color: #526459; }
+    .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+    .field { display: flex; flex-direction: column; gap: 7px; font-weight: 700; }
+    select, button { padding: 12px; border: 1px solid #cbd8cd; border-radius: 7px; font: inherit; background: white; color: #24352a; }
+    button { border: 0; background: #17643e; color: white; font-weight: 700; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-top: 18px; }
+    .stat { background: #f1f7f1; padding: 15px; border-radius: 9px; border: 1px solid #dce9de; }
+    .stat strong { display: block; color: #17643e; font-size: 1.45rem; overflow-wrap: anywhere; }
+    .priority-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+    .priority { border: 1px solid #dce9de; border-radius: 10px; padding: 17px; background: #fff; }
+    .priority p { margin-bottom: 0; }
+    .tag { display: inline-block; padding: 4px 8px; margin: 0 0 10px; border-radius: 20px; background: #e5f1e7; color: #174d32; font-size: .82rem; font-weight: 700; }
+    .notice { background: #fff8df; border-left: 4px solid #d9a323; padding: 14px 16px; }
+    #status { color: #526459; }
+    footer { text-align: center; padding: 24px; color: #657469; font-size: .9rem; }
+    @media (max-width: 600px) { header { padding: 22px 18px; } .card { padding: 18px; } .nav-buttons a { flex: 1 1 140px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🌱 AgriSmart Rwanda</h1>
+    <p>Agricultural Recommendations & District Priorities</p>
+    <nav class="nav-buttons" aria-label="Main navigation">
+      <a href="./national-dashboard.html">National dashboard</a>
+      <a href="./districts.html">District productivity</a>
+      <a href="./insights.html">Agricultural insights</a>
+      <a href="./recommendations.html" aria-current="page" aria-disabled="true">Recommendations</a>
+      <a href="./about.html">Project overview</a>
+      <a href="./data-sources.html">Data sources</a>
+    </nav>
+  </header>
+  <main>
+    <section class="card hero">
+      <h2>From statistics to questions worth investigating</h2>
+      <p>This page uses NISR Season B 2025 district data to highlight indicators that are below or above the median across districts. It turns those comparisons into practical <strong>questions to investigate</strong> with farmers, local agronomists, and agricultural extension teams—not automatic instructions or proof of cause and effect.</p>
+    </section>
+
+    <section class="card">
+      <h2>1. Choose a district and crop</h2>
+      <div class="controls">
+        <label class="field" for="districtSelect">District
+          <select id="districtSelect" disabled><option>Loading districts…</option></select>
+        </label>
+        <label class="field" for="cropSelect">Crop for yield context
+          <select id="cropSelect" disabled><option>Loading crops…</option></select>
+        </label>
+      </div>
+      <p id="status" role="status">Loading published NISR datasets…</p>
+      <div class="stats">
+        <div class="stat"><span>Land protected against erosion</span><strong id="protectedValue">—</strong><small id="protectedCompare">Compared with district median</small></div>
+        <div class="stat"><span>Irrigation practice</span><strong id="irrigationValue">—</strong><small id="irrigationCompare">Compared with district median</small></div>
+        <div class="stat"><span>Plots with severe erosion</span><strong id="erosionValue">—</strong><small id="erosionCompare">Compared with district median</small></div>
+        <div class="stat"><span>Selected crop yield</span><strong id="yieldValue">—</strong><small id="yieldCompare">Compared with district median</small></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>2. Suggested priorities to investigate</h2>
+      <p class="muted">Priorities update when you change the district or crop. The median is the middle value among districts with valid data; it is a comparison point, not a target or official standard.</p>
+      <div id="priorityList" class="priority-grid" aria-live="polite">
+        <p>Recommendations will appear after the datasets load.</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>3. How to use these suggestions</h2>
+      <ol>
+        <li>Use the comparison to decide which topic may deserve closer attention in the selected district.</li>
+        <li>Ask local farmers and extension officers about soil conditions, water access, crop varieties, input availability, and other relevant factors.</li>
+        <li>Check the original NISR tables and additional local evidence before deciding on an intervention.</li>
+        <li>Track outcomes over time before concluding that a practice caused a change in yield or erosion.</li>
+      </ol>
+      <p class="notice"><strong>Important:</strong> A district's indicator being above or below the median does not establish why it is different, and it does not prove that one practice caused a yield or erosion outcome. Suitability, cost, water availability, land conditions, and farmer preferences must be assessed locally.</p>
+      <p>Source: <a href="https://microdatabk.statistics.gov.rw/catalog/124" target="_blank" rel="noopener noreferrer">NISR Seasonal Agricultural Survey 2025 catalogue</a>. This prototype uses Tables 11, 29, and 33 in prepared CSV form.</p>
+    </section>
+  </main>
+  <footer>AgriSmart Rwanda · Student data-intelligence prototype</footer>
+
+  <script>
+    const DATA = {
+      practices: './data/processed/agrismart_district_agricultural_practices_2025.csv',
+      erosion: './data/processed/agrismart_district_erosion_2025.csv',
+      yields: './data/processed/agrismart_district_crop_yield_2025.csv'
+    };
+    let practices = [], erosion = [], yields = [];
+    const $ = id => document.getElementById(id);
+    const number = value => value === null || value === undefined || value === '' || !Number.isFinite(Number(value)) ? null : Number(value);
+    const median = values => {
+      const sorted = values.filter(v => v !== null && Number.isFinite(v)).sort((a,b) => a-b);
+      if (!sorted.length) return null;
+      const mid = Math.floor(sorted.length / 2);
+      return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    };
+    const fmtPct = v => v === null ? 'Not available' : v.toLocaleString(undefined, { maximumFractionDigits: 2 }) + '%';
+    const fmtYield = v => v === null || v <= 0 ? 'Not available' : v.toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' kg/ha';
+    function loadCsv(url) {
+      return new Promise((resolve, reject) => Papa.parse(url, {
+        download: true, header: true, skipEmptyLines: true, dynamicTyping: true,
+        complete: result => result.errors.length ? reject(new Error('Could not read ' + url)) : resolve(result.data),
+        error: () => reject(new Error('Could not load ' + url))
+      }));
+    }
+    function getDistrictRow(rows, district) { return rows.find(row => row.district === district) || null; }
+    function getYield(district, crop) {
+      const row = yields.find(r => r.district === district && r.crop === crop);
+      const value = row ? number(row.yield_kg_per_ha) : null;
+      return value !== null && value > 0 ? value : null;
+    }
+    function medianFor(rows, key, valid = v => v !== null) {
+      return median(rows.map(row => number(row[key])).filter(valid));
+    }
+    function comparison(value, mid, lowerIsConcern = true) {
+      if (value === null || mid === null) return { label: 'Insufficient data for comparison', below: false, above: false };
+      const below = value < mid, above = value > mid;
+      return {
+        label: Math.abs(value - mid) < 0.000001 ? 'At the district median' : (below ? 'Below district median' : 'Above district median'),
+        below: lowerIsConcern ? below : false,
+        above: lowerIsConcern ? false : above
+      };
+    }
+    function setStat(valueId, compareId, value, mid, formatter, concernDirection) {
+      $(valueId).textContent = formatter(value);
+      const cmp = comparison(value, mid, concernDirection !== 'higher');
+      $(compareId).textContent = cmp.label + (mid === null ? '' : ' · median ' + formatter(mid));
+      return cmp;
+    }
+    function addPriority(container, tag, title, evidence, action) {
+      const article = document.createElement('article');
+      article.className = 'priority';
+      const badge = document.createElement('span'); badge.className = 'tag'; badge.textContent = tag;
+      const heading = document.createElement('h3'); heading.textContent = title;
+      const p1 = document.createElement('p'); p1.innerHTML = '<strong>Data signal:</strong> ';
+      p1.appendChild(document.createTextNode(evidence));
+      const p2 = document.createElement('p'); p2.style.marginTop = '10px'; p2.innerHTML = '<strong>Question to investigate:</strong> ';
+      p2.appendChild(document.createTextNode(action));
+      article.append(badge, heading, p1, p2); container.appendChild(article);
+    }
+    function render() {
+      const district = $('districtSelect').value, crop = $('cropSelect').value;
+      if (!district || !crop) return;
+      const p = getDistrictRow(practices, district);
+      const e = getDistrictRow(erosion, district);
+      const land = p ? number(p.land_protected_against_erosion_pct) : null;
+      const irrigation = p ? number(p.irrigation_practice_pct) : null;
+      const severe = e ? number(e.severe_erosion_plots_pct) : null;
+      const cropYield = getYield(district, crop);
+      const landMed = medianFor(practices, 'land_protected_against_erosion_pct');
+      const irrigationMed = medianFor(practices, 'irrigation_practice_pct');
+      const severeMed = medianFor(erosion, 'severe_erosion_plots_pct');
+      const yieldMed = median(yields.filter(r => r.crop === crop).map(r => {
+        const v = number(r.yield_kg_per_ha); return v !== null && v > 0 ? v : null;
+      }));
+      const landCmp = setStat('protectedValue','protectedCompare',land,landMed,fmtPct);
+      const irrigationCmp = setStat('irrigationValue','irrigationCompare',irrigation,irrigationMed,fmtPct);
+      const severeCmp = setStat('erosionValue','erosionCompare',severe,severeMed,fmtPct,'higher');
+      const yieldCmp = setStat('yieldValue','yieldCompare',cropYield,yieldMed,fmtYield);
+      const list = $('priorityList'); list.replaceChildren();
+      let count = 0;
+      if (land !== null && landMed !== null && land < landMed) {
+        addPriority(list,'Below district median','Review erosion-protection coverage',
+          district + ' reports ' + fmtPct(land) + ' land protected against erosion, compared with a district median of ' + fmtPct(landMed) + '.',
+          'Ask extension officers which soil and water conservation options are suitable, affordable, and already used locally.');
+        count++;
+      }
+      if (severe !== null && severeMed !== null && severe > severeMed) {
+        addPriority(list,'Above district median','Investigate severe-erosion conditions',
+          district + ' reports ' + fmtPct(severe) + ' of plots in the severe-erosion category, compared with a district median of ' + fmtPct(severeMed) + '.',
+          'Check affected plot locations, slope, soil, rainfall exposure, and existing conservation practices before choosing responses.');
+        count++;
+      }
+      if (irrigation !== null && irrigationMed !== null && irrigation < irrigationMed) {
+        addPriority(list,'Below district median','Assess irrigation feasibility',
+          district + ' reports ' + fmtPct(irrigation) + ' for irrigation practice, compared with a district median of ' + fmtPct(irrigationMed) + '.',
+          'Investigate seasonal water availability, irrigation infrastructure, cost, and whether irrigation is suitable for local crops and farms.');
+        count++;
+      }
+      if (cropYield !== null && yieldMed !== null && cropYield < yieldMed) {
+        addPriority(list,'Below crop-specific median','Explore factors affecting ' + crop + ' yield',
+          district + ' reports ' + fmtYield(cropYield) + ' for ' + crop + ', compared with the crop-specific district median of ' + fmtYield(yieldMed) + '.',
+          'With local agronomists, examine possible factors such as seed variety, soil conditions, pests, rainfall, planting practices, and input access; this dataset does not identify the cause.');
+        count++;
+      }
+      if (p && number(p.agroforestry_practice_pct) !== null) {
+        const agro = number(p.agroforestry_practice_pct);
+        const agroMed = medianFor(practices, 'agroforestry_practice_pct');
+        if (agroMed !== null && agro < agroMed) {
+          addPriority(list,'Below district median','Discuss agroforestry suitability',
+            district + ' reports ' + fmtPct(agro) + ' for agroforestry practice, compared with a district median of ' + fmtPct(agroMed) + '.',
+            'Ask whether locally suitable trees or agroforestry systems could meet farmers’ goals without competing with priority crops or water needs.');
+          count++;
+        }
+      }
+      if (!count) {
+        addPriority(list,'No flagged comparison','Review the available indicators',
+          'The selected district has no indicators meeting the page’s simple below/above-median flags, or some data may be unavailable.',
+          'Review the figures and original source tables with local agricultural experts. A lack of flags does not mean that there are no agricultural challenges.');
+      }
+      $('status').textContent = 'Loaded ' + practices.length + ' practice records, ' + erosion.length + ' erosion records, and ' + yields.length + ' crop-yield records. Showing comparisons for ' + district + ' and ' + crop + '.';
+    }
+    async function init() {
+      try {
+        [practices, erosion, yields] = await Promise.all([
+          loadCsv(DATA.practices), loadCsv(DATA.erosion), loadCsv(DATA.yields)
+        ]);
+        const districts = [...new Set([...practices.map(r => r.district), ...erosion.map(r => r.district), ...yields.map(r => r.district)])].filter(Boolean).sort();
+        const crops = [...new Set(yields.map(r => r.crop).filter(Boolean))].sort();
+        $('districtSelect').replaceChildren(...districts.map(d => new Option(d,d)));
+        $('cropSelect').replaceChildren(...crops.map(c => new Option(c,c)));
+        $('districtSelect').disabled = districts.length === 0;
+        $('cropSelect').disabled = crops.length === 0;
+        $('districtSelect').addEventListener('change', render);
+        $('cropSelect').addEventListener('change', render);
+        if (districts.length && crops.length) render();
+        else $('status').textContent = 'The datasets loaded, but no district or crop options were found.';
+      } catch (error) {
+        $('status').textContent = 'The datasets could not be loaded. Check that the processed CSV files are published in the repository. Details: ' + error.message;
+        $('priorityList').textContent = 'Recommendations are unavailable until the data files load successfully.';
+      }
+    }
+    init();
+  </script>
+</body>
+</html>
