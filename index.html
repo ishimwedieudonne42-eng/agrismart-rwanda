@@ -166,6 +166,8 @@
         <option value="15">Top 15</option>
         <option value="100">All available</option>
       </select>
+      <button id="downloadCropData" type="button" style="margin-left:8px;padding:10px 14px;border:0;border-radius:6px;background:#17643e;color:white;font-weight:bold;cursor:pointer;">Download displayed data (CSV)</button>
+      <p>Download the crop categories currently displayed in the production chart, including their reported area and yield values.</p>
       <p id="status">Loading the crop dataset...</p>
       <div class="chart-container">
         <canvas id="productionChart"></canvas>
@@ -235,10 +237,9 @@
       document.getElementById("status").textContent = message;
     }
 
-    function drawChart() {
+    function getDisplayedCrops() {
       const limit = Number(document.getElementById("limit").value);
-
-      const topCrops = cropRows
+      return cropRows
         .filter(row =>
           row.crop &&
           Number.isFinite(row.production_mt) &&
@@ -246,6 +247,43 @@
         )
         .sort((a, b) => b.production_mt - a.production_mt)
         .slice(0, limit);
+    }
+
+    function downloadDisplayedCropData() {
+      const rows = getDisplayedCrops();
+      if (rows.length === 0) {
+        showError("There is no crop data to download yet.");
+        return;
+      }
+
+      const columns = [
+        ["crop", "Crop"],
+        ["production_mt", "Production_metric_tonnes"],
+        ["cultivated_area_ha", "Cultivated_area_ha"],
+        ["harvested_area_ha", "Harvested_area_ha"],
+        ["yield_mt_per_ha", "Yield_metric_tonnes_per_ha"]
+      ];
+      const csvCell = value => {
+        const safe = value === null || value === undefined ? "" : String(value);
+        return '"' + safe.replace(/"/g, '""') + '"';
+      };
+      const csv = [
+        columns.map(column => csvCell(column[1])).join(","),
+        ...rows.map(row => columns.map(column => csvCell(row[column[0]])).join(","))
+      ].join("\\r\\n");
+      const blob = new Blob(["\\uFEFF", csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "agrismart_displayed_crop_data_2025_season_b.csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function drawChart() {
+      const topCrops = getDisplayedCrops();
 
       if (productionChart) {
         productionChart.destroy();
@@ -444,6 +482,10 @@
       "change", () => {
         if (cropRows.length > 0) drawChart();
       }
+    );
+
+    document.getElementById("downloadCropData").addEventListener(
+      "click", downloadDisplayedCropData
     );
   </script>
 
