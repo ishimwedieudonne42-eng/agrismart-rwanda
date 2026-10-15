@@ -100,6 +100,9 @@
         <div class="chart-wrap"><canvas id="areaChart" role="img" aria-label="Bar chart comparing cultivated and harvested area for five crops"></canvas></div>
       </article>
     </section>
+    <div class="actions" style="margin-top:16px">
+      <button class="btn primary" id="downloadCropInsights" type="button" disabled>Download Crop Insights CSV</button>
+    </div>
     <p id="cropInsightStatus" class="notice" role="status">Loading crop performance data…</p>
     <p class="notice"><strong>Interpretation note:</strong> These are descriptive statistics, not explanations of why crop performance differs. Some crop categories may overlap in the source classification. Source: <a href="https://microdatabk.statistics.gov.rw/catalog/124" target="_blank" rel="noopener">NISR Seasonal Agricultural Survey 2025 catalogue</a>.</p>
 
@@ -155,6 +158,42 @@
       const number = value => new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(value);
       const tonnes = value => number(value) + ' tonnes';
       const hectares = value => number(value) + ' ha';
+      let season2025Rows = [];
+      document.getElementById('downloadCropInsights').addEventListener('click', function () {
+        if (!season2025Rows.length) {
+          status.textContent = 'Crop data is not ready to download yet. Please wait for the insights to load.';
+          return;
+        }
+        const columns = [
+          ['crop', 'Crop'],
+          ['year', 'Year'],
+          ['season', 'Season'],
+          ['cultivated_area_ha', 'Cultivated area (ha)'],
+          ['harvested_area_ha', 'Harvested area (ha)'],
+          ['production_mt', 'Production (tonnes)'],
+          ['yield_mt_per_ha', 'Yield (tonnes per hectare)'],
+          ['source_table', 'Source table'],
+          ['source', 'Source']
+        ];
+        const escapeCsv = value => {
+          const text = value == null ? '' : String(value);
+          return '"' + text.replace(/"/g, '""') + '"';
+        };
+        const csv = [
+          columns.map(column => escapeCsv(column[1])).join(','),
+          ...season2025Rows.map(row => columns.map(column => escapeCsv(row[column[0]])).join(','))
+        ].join('\\r\\n');
+        const blob = new Blob(['\\uFEFF', csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'agrismart_crop_insights_season_b_2025.csv';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        status.textContent = 'Downloaded the Season B 2025 crop insights CSV.';
+      });
 
       Papa.parse('./data/processed/agrismart_season_b_crop_data.csv', {
         download: true,
@@ -174,6 +213,8 @@
             status.textContent = 'Crop performance data could not be loaded. Please refresh the page or open the National Dashboard.';
             return;
           }
+          season2025Rows = rows;
+          document.getElementById('downloadCropInsights').disabled = false;
 
           const productionRank = [...rows].sort((a, b) => Number(b.production_mt) - Number(a.production_mt));
           const yieldRank = rows.filter(row => Number(row.yield_mt_per_ha) > 0).sort((a, b) => Number(b.yield_mt_per_ha) - Number(a.yield_mt_per_ha));
