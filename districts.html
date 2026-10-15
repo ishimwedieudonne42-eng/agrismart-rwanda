@@ -186,7 +186,9 @@
         <select id="cropSelect" disabled>
           <option>Loading crops...</option>
         </select>
+        <button id="downloadDistrictData" type="button" disabled style="padding:11px 14px;border:0;border-radius:7px;background:#17643e;color:white;font-weight:bold;cursor:pointer;">Download district data (CSV)</button>
       </div>
+      <p>Download the selected crop's reported yield records for all districts, including zero values that are excluded from positive-yield rankings.</p>
 
       <p id="status">Loading district dataset...</p>
       <div class="chart-container">
@@ -391,6 +393,42 @@
       });
     }
 
+    function downloadSelectedDistrictData() {
+      const selectedCrop = cropSelect.value;
+      const rows = districtData.filter(row => row.crop === selectedCrop);
+      if (!selectedCrop || rows.length === 0) {
+        showError("No district records are available to download for this crop.");
+        return;
+      }
+
+      const columns = [
+        ["district", "District"],
+        ["crop", "Crop"],
+        ["yield", "Yield_kg_per_ha"]
+      ];
+      const csvCell = value => {
+        const safe = value === null || value === undefined ? "" : String(value);
+        return '"' + safe.replace(/"/g, '""') + '"';
+      };
+      const csv = [
+        ["District", "Crop", "Yield_kg_per_ha", "Year", "Season"].map(csvCell).join(","),
+        ...rows.map(row => [
+          row.district, row.crop,
+          Number.isFinite(row.yield) ? row.yield : "",
+          2025, "B"
+        ].map(csvCell).join(","))
+      ].join("\r\n");
+      const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "agrismart_district_yields_2025_season_b.csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
     function showError(message) {
       document.getElementById("status").textContent = message;
     }
@@ -570,6 +608,10 @@
         if (districts.length > 1) districtBSelect.value = districts[1];
 
         cropSelect.disabled = false;
+        document.getElementById("downloadDistrictData").disabled = false;
+        document.getElementById("downloadDistrictData").addEventListener(
+          "click", downloadSelectedDistrictData
+        );
         cropSelect.addEventListener("change", () => {
           updateChart();
           updateComparison();
