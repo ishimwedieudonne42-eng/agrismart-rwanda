@@ -116,6 +116,73 @@
       box-shadow: none;
     }
 
+
+    /* Visual consistency with the AgriSmart homepage */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      padding: 16px 5%;
+      color: #174d32;
+      background: rgba(255,255,255,.95);
+      border-bottom: 1px solid #dbe9dd;
+      box-shadow: 0 6px 22px rgba(19,61,34,.08);
+      backdrop-filter: blur(14px);
+    }
+    header h1 { font-size: clamp(1.45rem, 3vw, 2rem); }
+    header p { color: #607568; }
+    .nav-buttons { gap: 7px; }
+    .nav-buttons a {
+      min-height: 42px;
+      padding: 9px 13px;
+      border: 1px solid #cfe2d2;
+      border-radius: 999px;
+      background: #e5f1e7;
+      color: #174d32;
+      font-size: .9rem;
+      transition: background .2s ease, color .2s ease, transform .2s ease, box-shadow .2s ease;
+    }
+    .nav-buttons a:hover:not([aria-disabled="true"]),
+    .nav-buttons a:focus-visible:not([aria-disabled="true"]) {
+      background: #1f7044;
+      color: white;
+      box-shadow: 0 5px 13px rgba(31,112,68,.18);
+      transform: translateY(-2px);
+    }
+    .nav-buttons a[aria-disabled="true"] {
+      background: #174d32;
+      color: white;
+      border-color: #174d32;
+    }
+    .card { transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease; }
+    .card:hover {
+      border-color: #b8d7be;
+      box-shadow: 0 10px 25px rgba(23,77,50,.09);
+    }
+    button, select { font: inherit; }
+    button:focus-visible, select:focus-visible, a:focus-visible {
+      outline: 3px solid #e3ad32;
+      outline-offset: 3px;
+    }
+    @media (max-width: 700px) {
+      header { padding: 13px 14px; }
+      header h1 { font-size: 1.35rem; }
+      .nav-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .nav-buttons a { padding: 9px 7px; text-align: center; font-size: .82rem; }
+      main { margin: 18px auto; padding: 0 12px; }
+      .card { padding: 17px; }
+      .stats { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+      .chart-container { height: 300px; }
+      #downloadCropData { margin: 10px 0 0 !important; width: 100%; min-height: 44px; }
+      select { width: 100%; }
+    }
+    @media (min-width: 520px) and (max-width: 700px) {
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .card { transition: none !important; }
+    }
+
   </style>
 </head>
 <body>
