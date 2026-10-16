@@ -61,6 +61,88 @@
       box-shadow: none;
     }
 
+
+    /* Consistent AgriSmart dashboard styling and responsive layout */
+    html { scroll-behavior: smooth; }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      padding: 16px 5%;
+      color: #174d32;
+      background: rgba(255,255,255,.96);
+      border-bottom: 1px solid #dbe9dd;
+      box-shadow: 0 6px 22px rgba(19,61,34,.08);
+      backdrop-filter: blur(14px);
+    }
+    header h1 { font-size: clamp(1.45rem, 3vw, 2rem); }
+    header p { color: #607568; }
+    .nav-buttons { gap: 7px; }
+    .nav-buttons a {
+      min-height: 42px;
+      padding: 9px 13px;
+      border: 1px solid #cfe2d2;
+      border-radius: 999px;
+      background: #e5f1e7;
+      color: #174d32;
+      font-size: .9rem;
+      transition: background .2s ease, color .2s ease, transform .2s ease, box-shadow .2s ease;
+    }
+    .nav-buttons a:hover:not([aria-disabled="true"]),
+    .nav-buttons a:focus-visible:not([aria-disabled="true"]) {
+      background: #1f7044;
+      color: white;
+      box-shadow: 0 5px 13px rgba(31,112,68,.18);
+      transform: translateY(-2px);
+    }
+    .nav-buttons a[aria-disabled="true"] {
+      background: #174d32;
+      color: white;
+      border-color: #174d32;
+    }
+    main { width: min(1150px, 100%); }
+    .card, .statbox { transition: border-color .22s ease, box-shadow .22s ease, transform .22s ease; }
+    .card { border: 1px solid #e3ece4; }
+    .card:hover { border-color: #c6ddca; box-shadow: 0 8px 22px rgba(23,77,50,.08); }
+    .statbox { border: 1px solid #e0ebe1; min-width: 0; overflow-wrap: anywhere; }
+    .statbox:hover { box-shadow: 0 5px 14px rgba(23,77,50,.07); }
+    button, select { font: inherit; }
+    button { transition: filter .2s ease, transform .2s ease; }
+    button:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+    button:disabled { opacity: .55; cursor: not-allowed !important; }
+    button:focus-visible, select:focus-visible, a:focus-visible {
+      outline: 3px solid #e3ad32;
+      outline-offset: 3px;
+    }
+    select { max-width: 100%; }
+    #districtComparisonTable th { position: sticky; top: 0; }
+    @media (max-width: 700px) {
+      header { padding: 13px 14px; }
+      header h1 { font-size: 1.35rem; }
+      .nav-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .nav-buttons a { padding: 9px 7px; text-align: center; font-size: .82rem; }
+      main { margin: 18px auto; padding: 0 12px; }
+      .card { padding: 16px; }
+      .controls { align-items: stretch; }
+      .controls label { width: 100%; }
+      .controls select, .controls button { width: 100%; min-width: 0; }
+      .grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+      .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+      .statbox { padding: 12px; }
+      .stat { font-size: clamp(18px, 4vw, 24px); }
+      .chart-container { height: 320px; }
+      #districtComparisonTable { min-width: 620px; }
+      #downloadInsightsComparison { width: 100%; min-height: 44px; }
+    }
+    @media (max-width: 380px) {
+      .stat-grid { grid-template-columns: minmax(0, 1fr); }
+      .chart-container { height: 290px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition: none !important; }
+    }
+
   </style>
 </head>
 <body>
