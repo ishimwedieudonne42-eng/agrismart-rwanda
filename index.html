@@ -102,6 +102,7 @@
     </section>
     <div class="actions" style="margin-top:16px">
       <button class="btn primary" id="downloadCropInsights" type="button" disabled>Download Crop Insights CSV</button>
+      <button class="btn secondary" id="downloadCropExcel" type="button" disabled>Download Excel Report (.xlsx)</button>
     </div>
     <p id="cropInsightStatus" class="notice" role="status">Loading crop performance data…</p>
     <p class="notice"><strong>Interpretation note:</strong> These are descriptive statistics, not explanations of why crop performance differs. Some crop categories may overlap in the source classification. Source: <a href="https://microdatabk.statistics.gov.rw/catalog/124" target="_blank" rel="noopener">NISR Seasonal Agricultural Survey 2025 catalogue</a>.</p>
@@ -152,6 +153,7 @@
   </main>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <script>
     (function () {
       const status = document.getElementById('cropInsightStatus');
@@ -214,6 +216,78 @@
         status.textContent = 'Downloaded the Season B 2025 crop insights CSV.';
       });
 
+      document.getElementById('downloadCropExcel').addEventListener('click', function () {
+        if (!season2025Rows.length) {
+          status.textContent = 'Crop data is not ready to download yet. Please wait for the insights to load.';
+          return;
+        }
+        if (typeof XLSX === 'undefined') {
+          status.textContent = 'The Excel library could not load. Check your internet connection and refresh the page, or download the CSV instead.';
+          return;
+        }
+
+        const workbook = XLSX.utils.book_new();
+        const productionRank = [...season2025Rows].sort((a, b) => Number(b.production_mt) - Number(a.production_mt));
+        const yieldRank = season2025Rows.filter(row => Number(row.yield_mt_per_ha) > 0).sort((a, b) => Number(b.yield_mt_per_ha) - Number(a.yield_mt_per_ha));
+        const areaRank = [...season2025Rows].sort((a, b) => Number(b.cultivated_area_ha) - Number(a.cultivated_area_ha));
+
+        const summaryData = [
+          ['AgriSmart Rwanda — Crop Insights Report'],
+          ['Reporting period', 'Season B 2025'],
+          ['Data source', 'NISR Seasonal Agricultural Survey 2025, Table 6'],
+          ['Units', 'Area: hectares (ha); Production: tonnes; Yield: tonnes per hectare'],
+          ['Formatting note', 'Measurement values are rounded to two decimal places in the crop data sheet.'],
+          [],
+          ['Key statistic', 'Crop', 'Reported value'],
+          ['Highest reported production', productionRank[0].crop, Number(productionRank[0].production_mt)],
+          ['Highest reported yield', yieldRank[0] ? yieldRank[0].crop : 'Not available', yieldRank[0] ? Number(yieldRank[0].yield_mt_per_ha) : ''],
+          ['Largest cultivated area', areaRank[0].crop, Number(areaRank[0].cultivated_area_ha)],
+          [],
+          ['Interpretation note', 'These are descriptive survey statistics; they do not explain why crop performance differs.']
+        ];
+        const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+        summarySheet['!cols'] = [{ wch: 34 }, { wch: 28 }, { wch: 22 }];
+        summarySheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }];
+        summarySheet['!freeze'] = { xSplit: 0, ySplit: 1 };
+        ['A1'].forEach(ref => { if (summarySheet[ref]) summarySheet[ref].s = { font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 16 }, fill: { fgColor: { rgb: '174D32' } }, alignment: { vertical: 'center' } }; });
+        ['A7', 'B7', 'C7'].forEach(ref => { if (summarySheet[ref]) summarySheet[ref].s = { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '2B7049' } }, alignment: { wrapText: true, vertical: 'center' } }; });
+        ['A2','A3','A4','A5','A8','A9','A10','A12'].forEach(ref => { if (summarySheet[ref]) summarySheet[ref].s = { font: { bold: true, color: { rgb: '174D32' } }, alignment: { wrapText: true, vertical: 'top' } }; });
+        ['C8','C9','C10'].forEach(ref => { if (summarySheet[ref] && typeof summarySheet[ref].v === 'number') summarySheet[ref].z = '#,##0.00'; });
+        summarySheet['!rows'] = [{ hpt: 30 }, { hpt: 22 }, { hpt: 22 }, { hpt: 30 }, { hpt: 30 }, {}, { hpt: 24 }];
+
+        const headers = ['Crop', 'Year', 'Season', 'Cultivated area (ha)', 'Harvested area (ha)', 'Production (tonnes)', 'Yield (tonnes per hectare)', 'Source table', 'Source'];
+        const cropData = [headers, ...season2025Rows.map(row => [
+          row.crop, Number(row.year), row.season,
+          Number(Number(row.cultivated_area_ha).toFixed(2)),
+          Number(Number(row.harvested_area_ha).toFixed(2)),
+          Number(Number(row.production_mt).toFixed(2)),
+          Number(Number(row.yield_mt_per_ha).toFixed(2)),
+          row.source_table, row.source
+        ])];
+        const cropSheet = XLSX.utils.aoa_to_sheet(cropData);
+        cropSheet['!cols'] = [{ wch: 22 }, { wch: 10 }, { wch: 10 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 30 }, { wch: 14 }, { wch: 58 }];
+        cropSheet['!autofilter'] = { ref: 'A1:I' + cropData.length };
+        cropSheet['!freeze'] = { xSplit: 0, ySplit: 1 };
+        headers.forEach((_, col) => {
+          const cell = XLSX.utils.encode_cell({ r: 0, c: col });
+          if (cropSheet[cell]) cropSheet[cell].s = { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '2B7049' } }, alignment: { wrapText: true, vertical: 'center' } };
+        });
+        for (let r = 1; r < cropData.length; r++) {
+          for (const c of [3, 4, 5, 6]) {
+            const cell = XLSX.utils.encode_cell({ r, c });
+            if (cropSheet[cell]) {
+              cropSheet[cell].z = '#,##0.00';
+              cropSheet[cell].s = { alignment: { horizontal: 'right' } };
+            }
+          }
+        }
+        cropSheet['!rows'] = [{ hpt: 34 }];
+        XLSX.utils.book_append_sheet(workbook, summarySheet, 'Report Summary');
+        XLSX.utils.book_append_sheet(workbook, cropSheet, 'Crop Data');
+        XLSX.writeFile(workbook, 'agrismart_crop_insights_season_b_2025.xlsx');
+        status.textContent = 'Downloaded the Excel report with Report Summary and Crop Data sheets.';
+      });
+
       Papa.parse('./data/processed/agrismart_season_b_crop_data.csv', {
         download: true,
         header: true,
@@ -234,6 +308,7 @@
           }
           season2025Rows = rows;
           document.getElementById('downloadCropInsights').disabled = false;
+          document.getElementById('downloadCropExcel').disabled = false;
 
           const productionRank = [...rows].sort((a, b) => Number(b.production_mt) - Number(a.production_mt));
           const yieldRank = rows.filter(row => Number(row.yield_mt_per_ha) > 0).sort((a, b) => Number(b.yield_mt_per_ha) - Number(a.yield_mt_per_ha));
