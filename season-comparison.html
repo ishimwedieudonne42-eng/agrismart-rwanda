@@ -41,6 +41,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .stat:hover{transform:translateY(-4px);box-shadow:0 10px 22px #183c2014}
 .stat strong{display:block;color:var(--green);font-size:clamp(1.3rem,2.3vw,1.8rem);margin:8px 0 3px;overflow-wrap:anywhere}
 .stat span{font-size:.88rem;color:var(--muted)}
+.insight-card{background:linear-gradient(135deg,#fff 0%,#f3faf3 100%)}.insight-list{list-style:none;padding:0;margin:16px 0 0;display:grid;gap:10px}.insight-list li{position:relative;padding:12px 14px 12px 42px;border:1px solid #e0ebe1;border-radius:11px;background:#fff;color:#304a37}.insight-list li:before{content:"✓";position:absolute;left:14px;top:12px;display:grid;place-items:center;width:19px;height:19px;border-radius:50%;background:#e1f1e3;color:#17643e;font-weight:800;font-size:.8rem}
 .chart{height:340px;position:relative;margin-top:12px}
 .table-wrap{overflow-x:auto;border:1px solid #e1e9e2;border-radius:11px}
 table{border-collapse:collapse;width:100%;min-width:620px;background:#fff}
@@ -73,6 +74,11 @@ footer{text-align:center;padding:26px 20px;color:#657469;font-size:13px;border-t
 <div class="stat">2025 yield<strong id="yield2025">—</strong><span>tonnes per harvested hectare</span></div>
 <div class="stat">Yield change, 2024–2025<strong id="yieldChange">—</strong><span>percent</span></div>
 </section>
+<section class="card insight-card" aria-labelledby="quickInsightsTitle">
+  <h2 id="quickInsightsTitle">Quick insights for your selected crop</h2>
+  <p>These observations are generated from the displayed survey records and update when you choose another crop.</p>
+  <ul id="quickInsights" class="insight-list"><li>Waiting for crop data…</li></ul>
+</section>
 <section class="card"><h2>Reported production by year</h2><p>Metric tonnes, Season B.</p><div class="chart"><canvas id="productionChart"></canvas></div></section>
 <section class="card"><h2>Reported cultivated and harvested area</h2><p>Hectares, Season B. The two area measures are displayed separately.</p><div class="chart"><canvas id="areaChart"></canvas></div></section>
 <section class="card"><h2>Reported yield by year</h2><p>Metric tonnes per harvested hectare (t/ha).</p><div class="chart"><canvas id="yieldChart"></canvas></div></section>
@@ -100,6 +106,17 @@ function render(){
  $('prodChange').textContent=showPct(pct(p25,p24));
  $('yield2025').textContent=y25===null?'Not available':fmt(y25,2);
  $('yieldChange').textContent=showPct(pct(y25,y24));
+ const insightItems=[];
+ const productionRecords=rows.map(r=>({year:Number(r.year),value:num(r.production_mt)})).filter(x=>x.value!==null);
+ const yieldRecords=rows.map(r=>({year:Number(r.year),value:num(r.yield_mt_per_ha)})).filter(x=>x.value!==null);
+ if(p25!==null) insightItems.push('Reported production in 2025 was '+fmt(p25,0)+' metric tonnes.');
+ if(pct(p25,p24)!==null){const change=pct(p25,p24);insightItems.push('Production '+(change>0?'increased':change<0?'decreased':'did not change')+' by '+fmt(Math.abs(change),2)+'% from 2024 to 2025.');}
+ else insightItems.push('A 2024–2025 production change cannot be calculated because one of those years is unavailable or the 2024 value is zero.');
+ if(productionRecords.length){const best=productionRecords.reduce((a,b)=>b.value>a.value?b:a);insightItems.push('The highest reported production among the available years was in '+best.year+' ('+fmt(best.value,0)+' metric tonnes).');}
+ if(y25!==null) insightItems.push('Reported yield in 2025 was '+fmt(y25,3)+' tonnes per hectare.');
+ if(yieldRecords.length){const bestYield=yieldRecords.reduce((a,b)=>b.value>a.value?b:a);insightItems.push('The highest reported yield among the available years was in '+bestYield.year+' ('+fmt(bestYield.value,3)+' t/ha).');}
+ const insightList=$('quickInsights');insightList.replaceChildren();
+ insightItems.forEach(message=>{const li=document.createElement('li');li.textContent=message;insightList.appendChild(li);});
  chart('productionChart','Production (tonnes)',years.map(String),[{label:'Production (tonnes)',data:prod,color:'#2b7049'}]);
  chart('areaChart','Area (ha)',years.map(String),[{label:'Cultivated area (ha)',data:cult,color:'#78a86f'},{label:'Harvested area (ha)',data:harv,color:'#d5a43a'}]);
  chart('yieldChart','Yield (t/ha)',years.map(String),[{label:'Yield (t/ha)',data:yieldVals,color:'#397da5'}]);
