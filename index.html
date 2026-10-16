@@ -182,6 +182,14 @@
         // Use semicolon separators so the file opens in columns in Excel locales
         // where commas are used as decimal separators. Keep quoted values and CRLF rows.
         const csv = [
+          // Report information appears first so users can identify the dataset and units.
+          [ 'AgriSmart Rwanda — Crop Insights Report' ].map(escapeCsv).join(';'),
+          [ 'Reporting period', 'Season B 2025' ].map(escapeCsv).join(';'),
+          [ 'Data source', 'NISR Seasonal Agricultural Survey 2025, Table 6' ].map(escapeCsv).join(';'),
+          [ 'Units', 'Area: hectares (ha); Production: tonnes; Yield: tonnes per hectare' ].map(escapeCsv).join(';'),
+          [ 'Note', 'Measurements are rounded to two decimal places for readability.' ].map(escapeCsv).join(';'),
+          '',
+          // Keep the crop table as a clearly labeled, semicolon-separated section.
           columns.map(column => escapeCsv(column[1])).join(';'),
           ...season2025Rows.map(row => columns.map(column => {
             const key = column[0];
