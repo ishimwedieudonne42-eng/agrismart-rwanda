@@ -62,6 +62,39 @@
     }
 
 
+    .insights-hero {
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
+      min-height: 310px;
+      display: flex;
+      align-items: center;
+      margin: 24px auto 0;
+      width: min(1150px, calc(100% - 36px));
+      padding: clamp(28px, 5vw, 56px);
+      border-radius: 20px;
+      color: #fff;
+      background: #174d32 url('https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1800&q=85') center 52%/cover no-repeat;
+      box-shadow: 0 12px 32px rgba(19,61,34,.16);
+      animation: heroReveal .7s ease both;
+    }
+    .insights-hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background: linear-gradient(100deg, rgba(8,42,24,.88), rgba(13,65,36,.67) 58%, rgba(13,65,36,.28));
+    }
+    .insights-hero-content { max-width: 720px; }
+    .hero-kicker { margin: 0 0 10px; color: #d5f2dc; font-size: .8rem; font-weight: 800; letter-spacing: .13em; }
+    .insights-hero h2 { margin: 0; max-width: 680px; font-size: clamp(1.9rem, 4vw, 3rem); line-height: 1.12; }
+    .insights-hero p:not(.hero-kicker) { max-width: 620px; color: #f0f8f1; line-height: 1.65; font-size: 1.03rem; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+    .hero-actions a { display: inline-flex; justify-content: center; align-items: center; min-height: 44px; padding: 11px 17px; border-radius: 999px; background: #fff; color: #174d32; font-weight: 700; text-decoration: none; transition: transform .2s ease, background .2s ease; }
+    .hero-actions a:last-child { background: rgba(255,255,255,.12); color: #fff; border: 1px solid rgba(255,255,255,.72); }
+    .hero-actions a:hover { transform: translateY(-2px); background: #dff1e3; color: #174d32; }
+    @keyframes heroReveal { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
     /* Consistent AgriSmart dashboard styling and responsive layout */
     html { scroll-behavior: smooth; }
     header {
@@ -117,6 +150,9 @@
     select { max-width: 100%; }
     #districtComparisonTable th { position: sticky; top: 0; }
     @media (max-width: 700px) {
+      .insights-hero { width: calc(100% - 24px); min-height: 290px; margin-top: 14px; padding: 26px 20px; border-radius: 14px; background-position: center; }
+      .hero-actions { display: grid; grid-template-columns: 1fr; }
+      .hero-actions a { width: 100%; }
       header { padding: 13px 14px; }
       header h1 { font-size: 1.35rem; }
       .nav-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -139,6 +175,7 @@
       .chart-container { height: 290px; }
     }
     @media (prefers-reduced-motion: reduce) {
+      .insights-hero { animation: none !important; }
       html { scroll-behavior: auto; }
       *, *::before, *::after { transition: none !important; }
     }
@@ -151,6 +188,17 @@
     <p>Agricultural Practices & Soil Erosion Insights</p>
     <nav class="nav-buttons" aria-label="Main navigation"><a href="./national-dashboard.html">National dashboard</a><a href="./districts.html">District productivity</a><a href="./insights.html">Agricultural insights</a><a href="./recommendations.html">Recommendations</a><a href="./about.html">Project overview</a><a href="./data-sources.html">Data sources</a><a href="./season-comparison.html">Season comparison</a></nav>
   </header>
+  <section class="insights-hero" aria-labelledby="insightsHeroTitle">
+    <div class="insights-hero-content">
+      <p class="hero-kicker">NISR SEASON B 2025 DATA</p>
+      <h2 id="insightsHeroTitle">Understand Rwanda’s agricultural practices</h2>
+      <p>Explore district-level indicators on land protection, irrigation, agroforestry, and soil erosion using published survey data.</p>
+      <div class="hero-actions">
+        <a href="#districtSelect">Explore a district</a>
+        <a href="#districtComparisonTable">Compare districts</a>
+      </div>
+    </div>
+  </section>
   <main>
     <section class="card">
       <h2>Explore a district</h2>
