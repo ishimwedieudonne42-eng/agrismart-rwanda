@@ -88,6 +88,40 @@
       <article class="card"><div class="number">📏</div><h3>Highest reported yield</h3><p id="yieldLeader" aria-live="polite">Loading crop data…</p></article>
       <article class="card"><div class="number">🌱</div><h3>Largest cultivated area</h3><p id="areaLeader" aria-live="polite">Loading crop data…</p></article>
     </section>
+    <section class="card" aria-labelledby="cropCompareTitle" style="margin-top:16px">
+      <h3 id="cropCompareTitle">Compare two crops</h3>
+      <p>Choose two crops to compare their reported production, yield, and land area for Season B 2025.</p>
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin:14px 0">
+        <label for="compareCropA" style="font-weight:700;color:var(--green)">First crop
+          <select id="compareCropA" style="display:block;width:100%;margin-top:6px;padding:11px;border:1px solid #b9cdbd;border-radius:8px;background:white;color:var(--ink);font:inherit">
+            <option value="">Loading crops…</option>
+          </select>
+        </label>
+        <label for="compareCropB" style="font-weight:700;color:var(--green)">Second crop
+          <select id="compareCropB" style="display:block;width:100%;margin-top:6px;padding:11px;border:1px solid #b9cdbd;border-radius:8px;background:white;color:var(--ink);font:inherit">
+            <option value="">Loading crops…</option>
+          </select>
+        </label>
+      </div>
+      <p id="cropCompareMessage" role="status" aria-live="polite">Crop data is loading.</p>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;min-width:560px">
+          <thead>
+            <tr style="background:#2b7049;color:white;text-align:left">
+              <th scope="col" style="padding:12px">Measure</th>
+              <th scope="col" id="compareHeaderA" style="padding:12px">First crop</th>
+              <th scope="col" id="compareHeaderB" style="padding:12px">Second crop</th>
+              <th scope="col" style="padding:12px">Difference*</th>
+            </tr>
+          </thead>
+          <tbody id="cropCompareBody">
+            <tr><td colspan="4" style="padding:12px">Waiting for crop data…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="font-size:.88rem;color:#657469;margin-top:10px">*Difference is the first selected crop's value minus the second selected crop's value. Positive values mean the first crop has the larger reported value; negative values mean the second crop has the larger value.</p>
+    </section>
+
     <section class="insight-charts" aria-label="Crop performance charts">
       <article class="card chart-card">
         <h3>Top 5 crops by reported production</h3>
@@ -396,6 +430,80 @@
             return;
           }
           season2025Rows = rows;
+
+          // Populate the crop selectors from the loaded Season B 2025 dataset.
+          const compareCropA = document.getElementById('compareCropA');
+          const compareCropB = document.getElementById('compareCropB');
+          const compareMessage = document.getElementById('cropCompareMessage');
+          const compareBody = document.getElementById('cropCompareBody');
+          const cropOptions = [...rows].sort((a, b) => String(a.crop).localeCompare(String(b.crop)));
+          const addCropOptions = select => {
+            select.replaceChildren();
+            cropOptions.forEach(row => {
+              const option = document.createElement('option');
+              option.value = String(row.crop);
+              option.textContent = String(row.crop);
+              select.appendChild(option);
+            });
+          };
+          addCropOptions(compareCropA);
+          addCropOptions(compareCropB);
+          if (cropOptions.length > 1) compareCropB.selectedIndex = 1;
+
+          const compareMeasures = [
+            { key: 'production_mt', label: 'Reported production', unit: 'tonnes' },
+            { key: 'yield_mt_per_ha', label: 'Reported yield', unit: 'tonnes/ha' },
+            { key: 'cultivated_area_ha', label: 'Cultivated area', unit: 'ha' },
+            { key: 'harvested_area_ha', label: 'Harvested area', unit: 'ha' }
+          ];
+          const compareNumber = value => Number(value).toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          });
+          const renderCropComparison = () => {
+            const cropA = rows.find(row => String(row.crop) === compareCropA.value);
+            const cropB = rows.find(row => String(row.crop) === compareCropB.value);
+            document.getElementById('compareHeaderA').textContent = cropA ? cropA.crop : 'First crop';
+            document.getElementById('compareHeaderB').textContent = cropB ? cropB.crop : 'Second crop';
+            if (!cropA || !cropB) {
+              compareMessage.textContent = 'Select two crops to see their comparison.';
+              compareBody.innerHTML = '<tr><td colspan="4" style="padding:12px">Choose two crops to compare.</td></tr>';
+              return;
+            }
+            if (String(cropA.crop) === String(cropB.crop)) {
+              compareMessage.textContent = 'You selected the same crop twice. Choose a different crop in one of the lists.';
+              compareBody.innerHTML = '<tr><td colspan="4" style="padding:12px">Please select two different crops.</td></tr>';
+              return;
+            }
+            compareMessage.textContent = 'Comparing ' + cropA.crop + ' with ' + cropB.crop + ' using reported Season B 2025 statistics.';
+            compareBody.replaceChildren();
+            compareMeasures.forEach((measure, index) => {
+              const valueA = Number(cropA[measure.key]);
+              const valueB = Number(cropB[measure.key]);
+              const difference = valueA - valueB;
+              const tr = document.createElement('tr');
+              tr.style.background = index % 2 === 0 ? '#f4f7f2' : 'white';
+              const values = [
+                measure.label,
+                compareNumber(valueA) + ' ' + measure.unit,
+                compareNumber(valueB) + ' ' + measure.unit,
+                (difference > 0 ? '+' : '') + compareNumber(difference) + ' ' + measure.unit
+              ];
+              values.forEach((value, cellIndex) => {
+                const td = document.createElement('td');
+                td.textContent = value;
+                td.style.padding = '12px';
+                td.style.borderBottom = '1px solid #e0e9e1';
+                if (cellIndex === 0) td.style.fontWeight = '700';
+                tr.appendChild(td);
+              });
+              compareBody.appendChild(tr);
+            });
+          };
+          compareCropA.addEventListener('change', renderCropComparison);
+          compareCropB.addEventListener('change', renderCropComparison);
+          renderCropComparison();
+
           document.getElementById('downloadCropInsights').disabled = false;
           document.getElementById('downloadCropExcel').disabled = false;
 
