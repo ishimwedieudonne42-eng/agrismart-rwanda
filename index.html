@@ -29,6 +29,7 @@
     .card p { margin: 0 0 16px; }
     .card a { color: var(--green2); font-weight: 700; }
     .number { font-size: 1.5rem; margin-bottom: 8px; }
+    .count-up { display: inline-block; font-variant-numeric: tabular-nums; min-width: 1ch; }
     .notice { margin-top: 22px; background: #fff8df; border-left: 4px solid #d9a323; padding: 15px 18px; border-radius: 4px; }
 
     /* Homepage visual refresh: image-led hero, clear navigation, and subtle motion. */
@@ -133,22 +134,22 @@
     <p>These comparisons use NISR Seasonal Agricultural Survey 2025, Season B, Table 6. Percentages show change in reported production from 2024 to 2025, calculated from the processed source table.</p>
     <section class="grid" aria-label="Selected national crop production findings">
       <article class="card">
-        <div class="number">🌱 +8.84%</div>
+        <div class="number">🌱 <span class="count-up" data-target="8.84" data-sign="+">8.84</span>%</div>
         <h3>Cassava production increased</h3>
         <p>Reported production rose from about 783,294 tonnes in 2024 to 852,541 tonnes in 2025.</p>
       </article>
       <article class="card">
-        <div class="number">🍌 +2.07%</div>
+        <div class="number">🍌 <span class="count-up" data-target="2.07" data-sign="+">2.07</span>%</div>
         <h3>Banana production increased</h3>
         <p>Reported production rose from about 1,142,552 tonnes in 2024 to 1,166,247 tonnes in 2025.</p>
       </article>
       <article class="card">
-        <div class="number">🍠 −2.14%</div>
+        <div class="number">🍠 <span class="count-up" data-target="2.14" data-sign="−">2.14</span>%</div>
         <h3>Sweet potato production decreased</h3>
         <p>Reported production fell from about 666,814 tonnes in 2024 to 652,515 tonnes in 2025.</p>
       </article>
       <article class="card">
-        <div class="number">🌽 −1.17%</div>
+        <div class="number">🌽 <span class="count-up" data-target="1.17" data-sign="−">1.17</span>%</div>
         <h3>Maize production decreased</h3>
         <p>Reported production fell from about 119,101 tonnes in 2024 to 117,711 tonnes in 2025.</p>
       </article>
@@ -631,5 +632,36 @@
     })();
   </script>
   <footer>AgriSmart Rwanda · Student data-intelligence prototype · Source: NISR agricultural survey statistics</footer>
+
+  <script>
+    // Animate the four published year-to-year production changes on page load.
+    // Values remain descriptive statistics from the existing source data.
+    (function () {
+      const counters = document.querySelectorAll('.count-up[data-target]');
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      counters.forEach(counter => {
+        const target = Number(counter.dataset.target);
+        const sign = counter.dataset.sign || '';
+        if (!Number.isFinite(target)) return;
+        if (reducedMotion) {
+          counter.textContent = sign + target.toFixed(2);
+          return;
+        }
+        const duration = 1100;
+        let startTime = null;
+        counter.textContent = sign + '0.00';
+        const step = timestamp => {
+          if (startTime === null) startTime = timestamp;
+          const progress = Math.min((timestamp - startTime) / duration, 1);
+          // Ease out smoothly, so the number slows down near its final value.
+          const eased = 1 - Math.pow(1 - progress, 3);
+          counter.textContent = sign + (target * eased).toFixed(2);
+          if (progress < 1) window.requestAnimationFrame(step);
+        };
+        window.requestAnimationFrame(step);
+      });
+    })();
+  </script>
+
 </body>
 </html>
