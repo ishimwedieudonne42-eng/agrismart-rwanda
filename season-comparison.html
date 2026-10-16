@@ -8,14 +8,53 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f7f2;color:#24352a;line-height:1.55}
-header{background:#174d32;color:#fff;padding:26px 7%}header h1{margin:0 0 8px}header p{margin:0;color:#d9ebdf}
-main{max-width:1120px;margin:26px auto;padding:0 20px}.card{background:#fff;border-radius:12px;padding:22px;margin-bottom:20px;box-shadow:0 3px 14px #183c2010}
-.nav-buttons{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}.nav-buttons a{display:inline-flex;padding:10px 14px;border:2px solid #d9ebdf;border-radius:8px;background:#2b7049;color:#fff;font-weight:700;text-decoration:none}.nav-buttons a[aria-disabled="true"]{background:#e1e8e2;color:#536359;pointer-events:none}
-.controls{display:flex;flex-wrap:wrap;gap:14px;align-items:end}.controls label{display:block;font-weight:700;margin-bottom:6px}select,button{padding:10px 13px;border:1px solid #ccd7ce;border-radius:7px;background:#fff;font-size:1rem}button{background:#17643e;color:#fff;border:0;font-weight:700;cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}.stat{background:#f7faf7;border:1px solid #e1e9e2;border-radius:9px;padding:16px}.stat strong{display:block;color:#17643e;font-size:1.55rem;margin-top:8px}
-.chart{height:340px;position:relative}.table-wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:620px}th,td{text-align:left;padding:11px;border-bottom:1px solid #e1e9e2}th{background:#e7f1e8}.notice{background:#fff8df;border-left:4px solid #d9a323;padding:14px}.muted{color:#526459}footer{text-align:center;padding:22px;color:#657469;font-size:13px}
-@media(max-width:600px){header{padding:22px 20px}.card{padding:17px}.chart{height:290px}}
+*{box-sizing:border-box}
+:root{--green:#17643e;--deep:#174d32;--light:#e7f1e8;--ink:#24352a;--muted:#526459}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:Arial,sans-serif;background:#f3f7f2;color:var(--ink);line-height:1.6}
+header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.96);backdrop-filter:blur(12px);color:var(--ink);padding:14px 5%;box-shadow:0 4px 20px rgba(22,61,35,.09);border-bottom:1px solid #e2ebe3}
+header h1{margin:0 0 4px;font-size:clamp(1.35rem,2.6vw,1.9rem);color:var(--deep)}
+header p{margin:0;color:var(--muted);font-size:.95rem}
+.nav-buttons{display:flex;flex-wrap:wrap;gap:9px;margin-top:13px}
+.nav-buttons a{display:inline-flex;align-items:center;justify-content:center;padding:9px 13px;border:1px solid #dce9de;border-radius:999px;background:#edf5ee;color:#205a39;font-size:.9rem;font-weight:700;text-decoration:none;transition:background .2s ease,color .2s ease,transform .2s ease,box-shadow .2s ease}
+.nav-buttons a:hover:not([aria-disabled="true"]){background:var(--green);color:#fff;transform:translateY(-2px);box-shadow:0 5px 12px #17643e22}
+.nav-buttons a[aria-disabled="true"]{background:#dfe9e0;color:#68766b;border-color:#dfe9e0;cursor:default}
+a:focus-visible,button:focus-visible,select:focus-visible{outline:3px solid #e4b746;outline-offset:3px}
+main{max-width:1180px;margin:30px auto 44px;padding:0 22px}
+.hero{position:relative;isolation:isolate;overflow:hidden;min-height:260px;display:flex;align-items:center;padding:clamp(28px,5vw,58px);margin-bottom:24px;border-radius:22px;background:linear-gradient(100deg,rgba(8,39,23,.84),rgba(14,61,35,.48)),url('https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1800&q=85') center/cover no-repeat;color:#fff;box-shadow:0 14px 32px rgba(24,62,34,.16);animation:heroIn .7s ease both}
+.hero-content{max-width:760px}.eyebrow{display:inline-block;margin-bottom:12px;padding:5px 11px;border:1px solid #ffffff70;border-radius:999px;background:#ffffff18;font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.hero h2{font-size:clamp(1.8rem,4vw,3rem);line-height:1.12;margin:0 0 12px}.hero p{max-width:650px;margin:0;color:#eef8ef;font-size:1.03rem}
+.card{background:#fff;border:1px solid #e6eee6;border-radius:17px;padding:clamp(18px,3vw,26px);margin-bottom:21px;box-shadow:0 6px 22px rgba(24,60,32,.055);transition:transform .22s ease,box-shadow .22s ease}
+.card:hover{box-shadow:0 11px 28px rgba(24,60,32,.09)}
+.card h2{margin:0 0 7px;color:#204f34;font-size:clamp(1.2rem,2.4vw,1.55rem)}
+.card>p{margin-top:5px;color:var(--muted)}
+.controls{display:flex;flex-wrap:wrap;gap:14px;align-items:end;margin-top:18px}
+.controls>div{min-width:min(100%,260px);flex:1}
+.controls label{display:block;font-weight:700;margin-bottom:7px;color:#294c35}
+select,button{width:100%;padding:12px 14px;border:1px solid #cddbd0;border-radius:10px;background:#fff;font-size:1rem}
+button{width:auto;background:var(--green);color:#fff;border:1px solid var(--green);font-weight:700;cursor:pointer;transition:transform .2s ease,background .2s ease,box-shadow .2s ease}
+button:hover:not(:disabled){background:#104b2d;transform:translateY(-2px);box-shadow:0 6px 14px #17643e28}
+button:disabled{opacity:.5;cursor:not-allowed}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:15px;margin-bottom:22px}
+.stat{position:relative;overflow:hidden;background:linear-gradient(145deg,#fff,#f5faf5);border:1px solid #e0ebe1;border-radius:16px;padding:19px;box-shadow:0 5px 18px #183c2008;transition:transform .22s ease,box-shadow .22s ease}
+.stat:before{content:"";position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#17643e,#92bf77)}
+.stat:hover{transform:translateY(-4px);box-shadow:0 10px 22px #183c2014}
+.stat strong{display:block;color:var(--green);font-size:clamp(1.3rem,2.3vw,1.8rem);margin:8px 0 3px;overflow-wrap:anywhere}
+.stat span{font-size:.88rem;color:var(--muted)}
+.chart{height:340px;position:relative;margin-top:12px}
+.table-wrap{overflow-x:auto;border:1px solid #e1e9e2;border-radius:11px}
+table{border-collapse:collapse;width:100%;min-width:620px;background:#fff}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid #e7eee7}
+th{background:#e7f1e8;color:#244e33;font-size:.9rem}
+tbody tr:nth-child(even){background:#f8fbf8}tbody tr:hover{background:#eef7ef}
+tbody tr:last-child td{border-bottom:0}
+.notice{background:#fff8df;border:1px solid #f1e2ad;border-left:5px solid #d9a323;border-radius:12px;padding:17px 19px;color:#5e4c1d}
+.muted{color:var(--muted)}
+footer{text-align:center;padding:26px 20px;color:#657469;font-size:13px;border-top:1px solid #e2ebe3;background:#fff}
+@keyframes heroIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:900px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.nav-buttons a{font-size:.86rem}}
+@media(max-width:600px){header{padding:13px 16px}header h1{font-size:1.3rem}.nav-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.nav-buttons a{padding:10px 7px;text-align:center;font-size:.82rem}main{padding:0 14px;margin-top:18px}.hero{min-height:230px;padding:25px 21px;border-radius:16px}.hero p{font-size:.95rem}.card{padding:17px;border-radius:14px}.stats{gap:10px}.stat{padding:15px 12px}.stat strong{font-size:1.3rem}.stat span{font-size:.8rem}.controls{align-items:stretch}.controls>div,.controls button{width:100%;min-width:0}.chart{height:285px}th,td{padding:10px;font-size:.88rem}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
@@ -24,6 +63,7 @@ main{max-width:1120px;margin:26px auto;padding:0 20px}.card{background:#fff;bord
 <a href="./index.html">Home</a><a href="./national-dashboard.html">National dashboard</a><a href="./districts.html">District productivity</a><a href="./insights.html">Agricultural insights</a><a href="./recommendations.html">Recommendations</a><a href="./about.html">Project overview</a><a href="./data-sources.html">Data sources</a><a href="./season-comparison.html" aria-disabled="true" aria-current="page">Season comparison</a>
 </nav></header>
 <main>
+<section class="hero" aria-labelledby="heroTitle"><div class="hero-content"><span class="eyebrow">AgriSmart Rwanda · Season B</span><h2 id="heroTitle">Understand how crop performance changes over time</h2><p>Explore reported production, cultivated area, harvested area and yield across 2023–2025 using prepared NISR survey data.</p></div></section>
 <section class="card"><h2>Choose a crop</h2><p>Select a crop to compare its reported production, cultivated area, harvested area and yield for each available year.</p>
 <div class="controls"><div><label for="cropSelect">Crop</label><select id="cropSelect"><option value="">Loading crops…</option></select></div><button id="downloadCsv" type="button" disabled>Download comparison (CSV)</button></div>
 <p id="status" class="muted" role="status">Loading the prepared NISR crop dataset…</p></section>
