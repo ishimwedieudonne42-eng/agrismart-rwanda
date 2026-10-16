@@ -284,6 +284,95 @@
         cropSheet['!rows'] = [{ hpt: 34 }];
         XLSX.utils.book_append_sheet(workbook, summarySheet, 'Report Summary');
         XLSX.utils.book_append_sheet(workbook, cropSheet, 'Crop Data');
+
+        // Add clean, chart-ready tables. The current xlsx-js-style library does not
+        // reliably write native Excel charts, so these sheets include readable
+        // data and simple in-cell bars that users can chart directly in Excel.
+        const makeBar = (value, maxValue, width = 18) => {
+          const ratio = maxValue > 0 ? Math.max(0, Number(value) / maxValue) : 0;
+          return '■'.repeat(Math.max(1, Math.round(ratio * width)));
+        };
+        const productionTop5 = productionRank.slice(0, 5);
+        const productionMax = Math.max(...productionTop5.map(row => Number(row.production_mt)), 1);
+        const productionSheetData = [
+          ['Top 5 Crops by Reported Production — Season B 2025'],
+          ['Crop', 'Production (tonnes)', 'Relative bar'],
+          ...productionTop5.map(row => [row.crop, Number(Number(row.production_mt).toFixed(2)), makeBar(row.production_mt, productionMax)])
+        ];
+        const productionSheet = XLSX.utils.aoa_to_sheet(productionSheetData);
+        productionSheet['!cols'] = [{ wch: 28 }, { wch: 24 }, { wch: 24 }];
+        productionSheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }];
+        ['A1'].forEach(ref => { if (productionSheet[ref]) productionSheet[ref].s = { font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 14 }, fill: { fgColor: { rgb: '174D32' } } }; });
+        ['A2','B2','C2'].forEach(ref => { if (productionSheet[ref]) productionSheet[ref].s = { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '2B7049' } }, alignment: { wrapText: true } }; });
+        for (let r = 2; r < productionSheetData.length; r++) {
+          const valueCell = productionSheet[XLSX.utils.encode_cell({ r, c: 1 })];
+          if (valueCell) valueCell.z = '#,##0.00';
+          const barCell = productionSheet[XLSX.utils.encode_cell({ r, c: 2 })];
+          if (barCell) barCell.s = { font: { color: { rgb: '2B7049' }, bold: true } };
+        }
+        XLSX.utils.book_append_sheet(workbook, productionSheet, 'Production Chart Data');
+
+        const yieldRows = yieldRank;
+        const yieldMax = Math.max(...yieldRows.map(row => Number(row.yield_mt_per_ha)), 1);
+        const yieldSheetData = [
+          ['Reported Yield by Crop — Season B 2025'],
+          ['Crop', 'Yield (tonnes per hectare)', 'Relative bar'],
+          ...yieldRows.map(row => [row.crop, Number(Number(row.yield_mt_per_ha).toFixed(2)), makeBar(row.yield_mt_per_ha, yieldMax)])
+        ];
+        const yieldSheet = XLSX.utils.aoa_to_sheet(yieldSheetData);
+        yieldSheet['!cols'] = [{ wch: 28 }, { wch: 30 }, { wch: 24 }];
+        yieldSheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }];
+        if (yieldSheet.A1) yieldSheet.A1.s = { font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 14 }, fill: { fgColor: { rgb: '174D32' } } };
+        ['A2','B2','C2'].forEach(ref => { if (yieldSheet[ref]) yieldSheet[ref].s = { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '2B7049' } }, alignment: { wrapText: true } }; });
+        for (let r = 2; r < yieldSheetData.length; r++) {
+          const valueCell = yieldSheet[XLSX.utils.encode_cell({ r, c: 1 })];
+          if (valueCell) valueCell.z = '#,##0.00';
+          const barCell = yieldSheet[XLSX.utils.encode_cell({ r, c: 2 })];
+          if (barCell) barCell.s = { font: { color: { rgb: '2B7049' }, bold: true } };
+        }
+        XLSX.utils.book_append_sheet(workbook, yieldSheet, 'Yield Chart Data');
+
+        const areaTop5 = areaRank.slice(0, 5);
+        const areaMax = Math.max(...areaTop5.map(row => Number(row.cultivated_area_ha)), 1);
+        const areaSheetData = [
+          ['Cultivated vs Harvested Area — Top 5 by Cultivated Area, Season B 2025'],
+          ['Crop', 'Cultivated area (ha)', 'Harvested area (ha)', 'Cultivated area bar', 'Harvested area bar'],
+          ...areaTop5.map(row => [
+            row.crop,
+            Number(Number(row.cultivated_area_ha).toFixed(2)),
+            Number(Number(row.harvested_area_ha).toFixed(2)),
+            makeBar(row.cultivated_area_ha, areaMax),
+            makeBar(row.harvested_area_ha, areaMax)
+          ])
+        ];
+        const areaSheet = XLSX.utils.aoa_to_sheet(areaSheetData);
+        areaSheet['!cols'] = [{ wch: 28 }, { wch: 24 }, { wch: 24 }, { wch: 24 }, { wch: 24 }];
+        areaSheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
+        if (areaSheet.A1) areaSheet.A1.s = { font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 14 }, fill: { fgColor: { rgb: '174D32' } } };
+        ['A2','B2','C2','D2','E2'].forEach(ref => { if (areaSheet[ref]) areaSheet[ref].s = { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '2B7049' } }, alignment: { wrapText: true } }; });
+        for (let r = 2; r < areaSheetData.length; r++) {
+          for (const c of [1, 2]) {
+            const cell = areaSheet[XLSX.utils.encode_cell({ r, c })];
+            if (cell) cell.z = '#,##0.00';
+          }
+          for (const c of [3, 4]) {
+            const cell = areaSheet[XLSX.utils.encode_cell({ r, c })];
+            if (cell) cell.s = { font: { color: { rgb: c === 3 ? '2B7049' : '77A985' }, bold: true } };
+          }
+        }
+        XLSX.utils.book_append_sheet(workbook, areaSheet, 'Area Comparison Data');
+
+        // Include a short guide on the summary sheet so the extra tabs are easy to find.
+        XLSX.utils.sheet_add_aoa(summarySheet, [
+          [],
+          ['Additional analysis sheets'],
+          ['Production Chart Data', 'Top five crops by reported production with relative bars.'],
+          ['Yield Chart Data', 'Crops ranked by reported yield with relative bars.'],
+          ['Area Comparison Data', 'Cultivated and harvested area for the five largest cultivated-area crops.'],
+          ['Chart note', 'These are chart-ready data tables with in-cell bars, not embedded Excel chart objects. In Excel, select a table and use Insert > Chart to create a native chart.']
+        ], { origin: 'A14' });
+        ['A15','A16','A17','A18','A19'].forEach(ref => { if (summarySheet[ref]) summarySheet[ref].s = { font: { bold: true, color: { rgb: '174D32' } }, alignment: { wrapText: true, vertical: 'top' } }; });
+        summarySheet['!cols'] = [{ wch: 34 }, { wch: 52 }, { wch: 22 }, { wch: 3 }, { wch: 24 }];
         XLSX.writeFile(workbook, 'agrismart_crop_insights_season_b_2025.xlsx');
         status.textContent = 'Downloaded the Excel report with Report Summary and Crop Data sheets.';
       });
