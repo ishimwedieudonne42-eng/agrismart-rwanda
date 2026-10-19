@@ -2139,5 +2139,78 @@
   })();
   </script>
 
+
+  <section class="card" id="cropYieldGapAnalysis" style="margin-top:1.5rem;">
+    <h2>District Crop Yield Gap Analysis</h2>
+    <p>Compare each district's reported yield with the highest positive yield and the median for the selected crop in the available 2025 Season B data. These are descriptive comparisons, not guaranteed achievable targets or explanations of why yields differ.</p>
+    <div class="compare-controls">
+      <div class="compare-field"><label for="yieldGapCrop">Crop</label><select id="yieldGapCrop" disabled><option>Loading crops...</option></select></div>
+    </div>
+    <p id="yieldGapStatus" class="compare-note" role="status" aria-live="polite">Loading district crop-yield records...</p>
+    <div class="ranking-grid">
+      <div class="ranking-card"><div class="ranking-label">Districts with positive yields</div><div class="ranking-value" id="ygCount">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Highest reported yield</div><div class="ranking-value" id="ygBest">—</div><div class="ranking-yield" id="ygBestDistrict"></div></div>
+      <div class="ranking-card"><div class="ranking-label">Median yield (kg/ha)</div><div class="ranking-value" id="ygMedian">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Average gap from best (%)</div><div class="ranking-value" id="ygAvgGap">—</div></div>
+    </div>
+    <h3>District yield gaps</h3>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>Rank</th><th>District</th><th>Reported yield (kg/ha)</th><th>Gap to highest yield (kg/ha)</th><th>Below highest (%)</th><th>Compared with median</th></tr></thead>
+        <tbody id="yieldGapBody"><tr><td colspan="6">Loading...</td></tr></tbody>
+      </table>
+    </div>
+    <button id="downloadYieldGap" type="button" disabled style="padding:11px 14px;border:0;border-radius:7px;background:#17643e;color:white;font-weight:bold;cursor:pointer;margin-top:12px;">Download yield gap report (CSV)</button>
+    <p class="compare-note">Only positive numeric yields are used to calculate the highest yield, median, and percentage gaps. Zero, missing, or invalid yields remain visible as unavailable and are not treated as confirmed production potential.</p>
+  </section>
+  <script>
+  (() => {
+    const select=document.getElementById("yieldGapCrop"),status=document.getElementById("yieldGapStatus");
+    const tbody=document.getElementById("yieldGapBody"),download=document.getElementById("downloadYieldGap");
+    const num=v=>{const s=String(v??"").trim(),n=Number(s);return s!==""&&Number.isFinite(n)?n:null;};
+    const fmt=v=>v==null?"Unavailable":v.toLocaleString(undefined,{maximumFractionDigits:2});
+    const csvCell=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"';
+    const median=values=>{if(!values.length)return null;const s=[...values].sort((a,b)=>a-b),m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2;};
+    let rows=[],report=[];
+    function render(){
+      const crop=select.value,all=rows.filter(r=>r.crop===crop);
+      const valid=all.filter(r=>r.yield!=null&&r.yield>0).sort((a,b)=>b.yield-a.yield||a.district.localeCompare(b.district));
+      const best=valid[0]||null,med=median(valid.map(r=>r.yield));
+      report=all.map(r=>{
+        const ok=r.yield!=null&&r.yield>0;
+        const gap=ok&&best?r.yield===best.yield?0:best.yield-r.yield:null;
+        const gapPct=ok&&best?(best.yield-r.yield)/best.yield*100:null;
+        return {district:r.district,crop,yield:ok?r.yield:null,bestYield:best?best.yield:null,bestDistrict:best?best.district:"",gap,gapPct,median:med,medianComparison:!ok||med==null?"Unavailable":r.yield<med?"Below median":r.yield>med?"Above median":"At median",year:r.year,season:r.season,source:r.source};
+      }).sort((a,b)=>(a.yield==null?1:b.yield==null?-1:b.yield-a.yield)||a.district.localeCompare(b.district));
+      const avgGap=valid.length&&best?valid.reduce((sum,r)=>sum+(best.yield-r.yield)/best.yield*100,0)/valid.length:null;
+      document.getElementById("ygCount").textContent=String(valid.length);
+      document.getElementById("ygBest").textContent=fmt(best?.yield??null);
+      document.getElementById("ygBestDistrict").textContent=best?best.district+" (kg/ha)": "No positive yield available";
+      document.getElementById("ygMedian").textContent=fmt(med);
+      document.getElementById("ygAvgGap").textContent=avgGap==null?"Unavailable":fmt(avgGap)+"%";
+      tbody.replaceChildren();
+      if(!report.length){const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=6;td.textContent="No district records found for this crop.";tr.appendChild(td);tbody.appendChild(tr);}
+      report.forEach((r,i)=>{const tr=document.createElement("tr");[r.yield==null?"—":String(i+1),r.district,fmt(r.yield),fmt(r.gap),r.gapPct==null?"Unavailable":fmt(r.gapPct)+"%",r.medianComparison].forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.appendChild(td);});tbody.appendChild(tr);});
+      status.textContent="Showing "+all.length+" district records for "+crop+". Gap percentages use the highest positive reported yield as the reference.";
+      download.disabled=!report.length;
+    }
+    select.addEventListener("change",render);
+    fetch("./data/processed/agrismart_district_crop_yield_2025.csv").then(r=>{if(!r.ok)throw new Error("Crop-yield dataset could not be loaded");return r.text();}).then(raw=>{
+      const parsed=Papa.parse(raw,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")});
+      rows=(parsed.data||[]).filter(r=>r.district&&r.crop&&Number(r.year)===2025&&String(r.season||"").trim().toUpperCase()==="B").map(r=>({district:String(r.district).trim(),crop:String(r.crop).trim(),yield:num(r.yield_kg_per_ha),year:Number(r.year),season:String(r.season||"").trim().toUpperCase(),source:r.source||r.source_table||"NISR Seasonal Agricultural Survey 2025, Season B"}));
+      const crops=[...new Set(rows.map(r=>r.crop))].sort((a,b)=>a.localeCompare(b));
+      select.replaceChildren();crops.forEach(c=>{const o=document.createElement("option");o.value=c;o.textContent=c;select.appendChild(o);});
+      select.disabled=!crops.length;if(!crops.length)throw new Error("No crop records were found.");render();
+    }).catch(err=>{status.textContent="Unable to load yield gap analysis: "+err.message;tbody.innerHTML='<tr><td colspan="6">Yield gap analysis unavailable. Refresh and try again.</td></tr>';});
+    download.addEventListener("click",()=>{
+      if(!report.length)return;
+      const headers=["Rank","District","Crop","Reported yield (kg/ha)","Highest yield (kg/ha)","Highest-yield district","Gap to highest (kg/ha)","Below highest (%)","Median yield (kg/ha)","Median comparison","Year","Season","Source"];
+      const lines=[headers,...report.map((r,i)=>[r.yield==null?"":i+1,r.district,r.crop,r.yield??"",r.bestYield??"",r.bestDistrict,r.gap??"",r.gapPct??"",r.median??"",r.medianComparison,r.year,r.season,r.source])];
+      const blob=new Blob(["\uFEFF"+lines.map(row=>row.map(csvCell).join(",")).join("\r\n")],{type:"text/csv;charset=utf-8;"});
+      const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="agrismart_district_crop_yield_gap_analysis.csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    });
+  })();
+  </script>
+
 </body>
 </html>
