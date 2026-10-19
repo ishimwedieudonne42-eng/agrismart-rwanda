@@ -1363,7 +1363,7 @@
       const loadCSV=path=>fetch(path).then(res=>{if(!res.ok)throw new Error("Could not load "+path);return res.text();}).then(text=>Papa.parse(text,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")}).data);
       const valueOf=v=>v===null||v===undefined||String(v).trim()===""?null:(Number.isFinite(Number(v))?Number(v):null);
       const median=values=>{const a=values.filter(v=>v!==null&&Number.isFinite(v)).sort((x,y)=>x-y);if(!a.length)return null;const m=Math.floor(a.length/2);return a.length%2?a[m]:(a[m-1]+a[m])/2;};
-      const format=(v,unit)=>v===null?"Unavailable":v.toLocaleString(undefined,{maximumFractionDigits:2})+(unit==="%"?"%":unit==="kg/ha"?" kg/ha":"")};
+      const format=(v,unit)=>v===null?"Unavailable":v.toLocaleString(undefined,{maximumFractionDigits:2})+(unit==="%"?"%":unit==="kg/ha"?" kg/ha":"");
       function getMetricRows(metric){
         if(metric.type==="crop"){
           const rows=cropRows.filter(r=>r.crop===metric.crop).map(r=>({district:r.district,value:r.value})).filter(r=>r.value!==null&&r.value>0);
