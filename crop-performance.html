@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Compare Rwanda crop production, yield and area across Season B years.">
+<title>Crop Performance Analysis | AgriSmart Rwanda</title>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{--green:#174d32;--green2:#2b7049;--light:#e5f1e7;--ink:#24352a;--muted:#64766a}
+*{box-sizing:border-box}body{margin:0;background:#f4f7f2;color:var(--ink);font:16px/1.6 Arial,sans-serif}
+header{position:sticky;top:0;z-index:5;background:#ffffffed;backdrop-filter:blur(12px);border-bottom:1px solid #dbe9dd;box-shadow:0 5px 20px #183c2010;padding:13px 5%}
+.header-inner{max-width:1250px;margin:auto;display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap}.brand{font-weight:800;color:var(--green);font-size:1.2rem}.nav{display:flex;flex-wrap:wrap;gap:6px}.nav a{padding:7px 11px;border-radius:99px;text-decoration:none;color:#244a32;font-weight:700;font-size:.9rem}.nav a:hover,.nav a:focus-visible{background:var(--light);outline-offset:3px}
+main{max-width:1200px;margin:auto;padding:26px 18px 50px}.hero{padding:clamp(25px,5vw,48px);border-radius:20px;background:linear-gradient(100deg,#082b1beF,#174d32c9),url('https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1800&q=80') center/cover;color:white;box-shadow:0 15px 32px #174d321c;animation:appear .6s ease}.eyebrow{text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:#b7f0c6;font-size:.8rem}h1{font-size:clamp(2rem,5vw,3.2rem);line-height:1.12;margin:10px 0 12px}.hero p{max-width:760px;margin-bottom:0}.section-title{color:var(--green);margin:28px 0 12px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}.card,.panel{background:white;border:1px solid #e0e9e1;border-radius:15px;padding:19px;box-shadow:0 4px 16px #183c2008;min-width:0}.card{transition:transform .2s,box-shadow .2s}.card:hover{transform:translateY(-3px);box-shadow:0 10px 24px #174d3215}.metric{font-size:1.65rem;font-weight:800;color:var(--green);line-height:1.3}.muted{color:var(--muted);font-size:.9rem}.controls{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-bottom:16px}.field{display:flex;flex-direction:column;gap:5px;min-width:170px;flex:1}.field label{font-weight:700;font-size:.9rem}select,button{font:inherit;padding:10px 12px;border-radius:9px;border:1px solid #cbd9ce;background:white;color:var(--ink)}button{background:var(--green2);border-color:var(--green2);color:white;font-weight:700;cursor:pointer}button:hover{background:var(--green)}button:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #e3ad32;outline-offset:3px}.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));gap:16px}.chart-wrap{height:320px;position:relative}.table-wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:.92rem}th,td{text-align:left;padding:10px;border-bottom:1px solid #e5ece6;white-space:nowrap}th{background:#edf5ee;color:var(--green)}.positive{color:#237344;font-weight:700}.negative{color:#a23a2d;font-weight:700}.notice{margin-top:18px;background:#fff8df;border-left:4px solid #d9a323;padding:13px 16px;border-radius:5px}.status{margin:12px 0;color:var(--muted)}footer{text-align:center;padding:22px;color:var(--muted);font-size:.9rem}
+@keyframes appear{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}@media(max-width:650px){.header-inner{align-items:flex-start}.nav{width:100%}.nav a{font-size:.82rem;padding:7px 9px}.chart-wrap{height:270px}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<header><div class="header-inner"><div><div class="brand">AgriSmart Rwanda</div><div class="muted">Agricultural intelligence from published statistics</div></div><nav class="nav" aria-label="Main navigation">
+<a href="./index.html">Home</a><a href="./national-dashboard.html">National dashboard</a><a href="./districts.html">Districts</a><a href="./insights.html">Insights</a><a href="./recommendations.html">Recommendations</a><a href="./season-comparison.html">Season comparison</a><a href="./data-quality.html">Data quality</a><a href="./district-map.html">District map</a>
+</nav></div></header>
+<main>
+<section class="hero"><div class="eyebrow">Crop intelligence · Season B</div><h1>Advanced Crop Performance Analysis</h1><p>Compare crop production, yield and land area across available years. Use the rankings to explore the published figures, then download a CSV report for further analysis.</p></section>
+<h2 class="section-title">Performance snapshot · latest available year</h2><div class="cards" id="summary"><div class="card">Loading crop data…</div></div>
+<h2 class="section-title">Explore and compare crops</h2>
+<section class="panel"><div class="controls">
+<div class="field"><label for="metric">Rank crops by</label><select id="metric"><option value="production_mt">Production (tonnes)</option><option value="yield_mt_per_ha">Yield (tonnes per hectare)</option><option value="cultivated_area_ha">Cultivated area (ha)</option><option value="harvested_area_ha">Harvested area (ha)</option></select></div>
+<div class="field"><label for="year">Year</label><select id="year"></select></div>
+<div class="field"><label for="cropA">Compare crop A</label><select id="cropA"></select></div>
+<div class="field"><label for="cropB">Compare crop B</label><select id="cropB"></select></div>
+<button id="download">Download crop report CSV</button>
+</div><p id="status" class="status" role="status">Loading data…</p></section>
+<div class="charts" style="margin-top:16px"><section class="panel"><h3 class="section-title" style="margin-top:0">Crop rankings</h3><div class="chart-wrap"><canvas id="rankingChart" aria-label="Crop ranking chart"></canvas></div></section>
+<section class="panel"><h3 class="section-title" style="margin-top:0">Selected crop comparison</h3><div class="chart-wrap"><canvas id="compareChart" aria-label="Selected crop comparison chart"></canvas></div></section></div>
+<h2 class="section-title">Comparison table</h2><section class="panel"><div class="table-wrap"><table><thead><tr><th>Indicator</th><th id="headingA">Crop A</th><th id="headingB">Crop B</th><th>Difference (A − B)</th></tr></thead><tbody id="comparisonRows"></tbody></table></div><p class="muted">Production is reported in tonnes; yield is tonnes per hectare; area is hectares. Values are from the prepared NISR Seasonal Agricultural Survey Season B dataset.</p></section>
+<h2 class="section-title">Productivity insights</h2><div class="cards" id="insights"><div class="card">Insights will appear when data loads.</div></div>
+<div class="notice"><strong>Interpretation note:</strong> A high yield means more reported production per harvested hectare; it does not by itself explain profitability, input costs, soil conditions, or why a crop performs differently. Missing values should not be interpreted as zero.</div>
+</main><footer>AgriSmart Rwanda · Source: NISR Seasonal Agricultural Survey 2025, Season B, prepared crop dataset.</footer>
+<script>
+const DATA_URL='./data/processed/agrismart_season_b_crop_data.csv';
+const fmt=(v,d=2)=>Number.isFinite(Number(v))?Number(v).toLocaleString('en-US',{maximumFractionDigits:d}):'—';
+const labels={production_mt:'Production (tonnes)',yield_mt_per_ha:'Yield (tonnes/ha)',cultivated_area_ha:'Cultivated area (ha)',harvested_area_ha:'Harvested area (ha)'};
+let rows=[],rankChart=null,compareChart=null;
+const el=id=>document.getElementById(id);
+function latestRows(year){return rows.filter(r=>Number(r.year)===Number(year)).sort((a,b)=>a.crop.localeCompare(b.crop));}
+function valueFor(row,key){return Number(row?.[key]);}
+function selectedCrop(name,year){return rows.find(r=>r.crop===name&&Number(r.year)===Number(year));}
+function draw(){
+ const year=Number(el('year').value), metric=el('metric').value, current=latestRows(year).filter(r=>Number.isFinite(valueFor(r,metric)));
+ current.sort((a,b)=>valueFor(b,metric)-valueFor(a,metric));
+ if(rankChart)rankChart.destroy();
+ rankChart=new Chart(el('rankingChart'),{type:'bar',data:{labels:current.map(r=>r.crop),datasets:[{label:labels[metric],data:current.map(r=>valueFor(r,metric)),backgroundColor:'#2b7049'}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true}}}});
+ const a=selectedCrop(el('cropA').value,year),b=selectedCrop(el('cropB').value,year),keys=['production_mt','yield_mt_per_ha','cultivated_area_ha','harvested_area_ha'];
+ el('headingA').textContent=a?.crop||'Crop A';el('headingB').textContent=b?.crop||'Crop B';
+ el('comparisonRows').innerHTML=keys.map(k=>{const av=valueFor(a,k),bv=valueFor(b,k),diff=av-bv;return '<tr><td>'+labels[k]+'</td><td>'+fmt(av)+'</td><td>'+fmt(bv)+'</td><td class="'+(diff>0?'positive':diff<0?'negative':'')+'">'+(Number.isFinite(diff)?(diff>0?'+':'')+fmt(diff):'—')+'</td></tr>'}).join('');
+ if(compareChart)compareChart.destroy();
+ compareChart=new Chart(el('compareChart'),{type:'bar',data:{labels:['Production (t)','Yield (t/ha)','Cultivated area (ha)','Harvested area (ha)'],datasets:[{label:a?.crop||'Crop A',data:keys.map(k=>valueFor(a,k)),backgroundColor:'#2b7049'},{label:b?.crop||'Crop B',data:keys.map(k=>valueFor(b,k)),backgroundColor:'#d9a323'}]},options:{responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true}},plugins:{tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt(c.raw)}}}}});
+ el('status').textContent='Showing '+current.length+' crops for Season B '+year+'. Rankings use the selected indicator.';
+ buildInsights(year);
+}
+function buildInsights(year){
+ const data=latestRows(year);
+ const prod=[...data].sort((a,b)=>b.production_mt-a.production_mt)[0],yieldTop=[...data].sort((a,b)=>b.yield_mt_per_ha-a.yield_mt_per_ha)[0],yieldLow=[...data].sort((a,b)=>a.yield_mt_per_ha-b.yield_mt_per_ha)[0];
+ el('insights').innerHTML=[['Highest reported production',prod?.crop||'—',fmt(prod?.production_mt)+' tonnes'],['Highest reported yield',yieldTop?.crop||'—',fmt(yieldTop?.yield_mt_per_ha)+' tonnes/ha'],['Lowest reported yield',yieldLow?.crop||'—',fmt(yieldLow?.yield_mt_per_ha)+' tonnes/ha']].map(x=>'<article class="card"><div class="muted">'+x[0]+'</div><div class="metric" style="font-size:1.25rem">'+x[1]+'</div><div>'+x[2]+'</div></article>').join('');
+}
+function downloadReport(){
+ const year=Number(el('year').value),a=el('cropA').value,b=el('cropB').value;
+ const out=latestRows(year).map(r=>({Crop:r.crop,Year:r.year,Season:r.season,'Cultivated area (ha)':r.cultivated_area_ha,'Harvested area (ha)':r.harvested_area_ha,'Production (tonnes)':r.production_mt,'Yield (tonnes per hectare)':r.yield_mt_per_ha,'Source table':r.source_table,Source:r.source,'Comparison selection':r.crop===a?'Crop A':r.crop===b?'Crop B':''}));
+ const csv='\uFEFF'+Papa.unparse(out,{quotes:true,delimiter:','});
+ const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='agrismart_crop_performance_'+year+'_season_B.csv';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+}
+el('metric').addEventListener('change',draw);el('year').addEventListener('change',draw);el('cropA').addEventListener('change',draw);el('cropB').addEventListener('change',draw);el('download').addEventListener('click',downloadReport);
+Papa.parse(DATA_URL,{download:true,header:true,skipEmptyLines:true,dynamicTyping:true,complete:result=>{
+ rows=result.data.filter(r=>r.crop&&Number.isFinite(Number(r.year))).map(r=>({...r,crop:String(r.crop).trim()}));
+ if(!rows.length){el('status').textContent='No crop rows were found in the dataset. Check the CSV path and column names.';return;}
+ const years=[...new Set(rows.map(r=>Number(r.year)))].sort((a,b)=>b-a),crops=[...new Set(rows.map(r=>r.crop))].sort((a,b)=>a.localeCompare(b));
+ el('year').innerHTML=years.map(y=>'<option value="'+y+'">'+y+'</option>').join('');
+ const options=crops.map(c=>'<option value="'+c.replace(/&/g,'&amp;').replace(/"/g,'&quot;')+'">'+c+'</option>').join('');
+ el('cropA').innerHTML=options;el('cropB').innerHTML=options;
+ el('cropA').value=crops.find(c=>c.toLowerCase()==='maize')||crops[0];el('cropB').value=crops.find(c=>c.toLowerCase()==='cassava')||crops[1]||crops[0];
+ const topYear=years[0],data=latestRows(topYear),prod=[...data].sort((a,b)=>b.production_mt-a.production_mt)[0],yieldTop=[...data].sort((a,b)=>b.yield_mt_per_ha-a.yield_mt_per_ha)[0];
+ el('summary').innerHTML=[['Crops available',data.length,'in Season B '+topYear],['Highest production',prod?.crop||'—',fmt(prod?.production_mt)+' tonnes'],['Highest yield',yieldTop?.crop||'—',fmt(yieldTop?.yield_mt_per_ha)+' tonnes/ha'],['Years available',years.join(', '),'in the prepared dataset']].map(x=>'<article class="card"><div class="muted">'+x[0]+'</div><div class="metric">'+x[1]+'</div><div class="muted">'+x[2]+'</div></article>').join('');
+ draw();
+},error:err=>{el('status').textContent='Could not load crop data: '+err.message+'. Please confirm the dataset path is available on GitHub Pages.';}});
+</script></body></html>
