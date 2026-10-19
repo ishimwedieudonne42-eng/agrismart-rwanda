@@ -286,6 +286,41 @@
       <p><small>Boundary source: Rwanda Ministry of Environment GIS, district boundaries based on village boundaries established during the 2022 census. Agricultural values come from the AgriSmart Rwanda project datasets. Areas without a reported value are shown in grey.</small></p>
     </section>
 
+    <section class="card" id="districtPriorityFinder">
+      <h2>District Agricultural Priority Finder</h2>
+      <p>Find districts whose reported indicators may deserve closer agricultural support. Each indicator is compared separately with the median of available district values. This tool does not create a combined risk score or replace local assessment.</p>
+      <div class="controls">
+        <label for="priorityCrop">Crop yield indicator
+          <select id="priorityCrop" disabled><option>Loading crops…</option></select>
+        </label>
+        <label for="priorityFilter">Show districts
+          <select id="priorityFilter">
+            <option value="all">All districts</option>
+            <option value="multiple">Multiple indicators to review</option>
+            <option value="yield">Crop yield below median</option>
+            <option value="erosion">Severe erosion above median</option>
+            <option value="irrigation">Irrigation below median</option>
+            <option value="agroforestry">Agroforestry below median</option>
+          </select>
+        </label>
+        <button type="button" id="downloadPriorityReport" disabled>Download priority report (CSV)</button>
+      </div>
+      <div id="priorityStatus" class="map-status" role="status">Loading district indicators…</div>
+      <div class="ranking-grid">
+        <div class="ranking-card"><h3>Districts reviewed</h3><p id="priorityDistrictCount">—</p></div>
+        <div class="ranking-card"><h3>Multiple indicators to review</h3><p id="priorityMultipleCount">—</p></div>
+        <div class="ranking-card"><h3>Below-median crop yield</h3><p id="priorityLowYieldCount">—</p></div>
+        <div class="ranking-card"><h3>Above-median severe erosion</h3><p id="priorityHighErosionCount">—</p></div>
+      </div>
+      <p><small>Priority flags are screening signals only. A district may be flagged because of a low reported yield, higher reported severe erosion, or below-median irrigation/agroforestry. Median comparisons exclude missing values; zero values remain valid for percentage indicators. Verify context before making decisions.</small></p>
+      <div style="overflow-x:auto">
+        <table class="ranking-table" id="priorityTable">
+          <thead><tr><th>District</th><th>Crop yield</th><th>Severe erosion</th><th>Irrigation</th><th>Agroforestry</th><th>Indicators to review</th><th>Screening flags</th></tr></thead>
+          <tbody id="priorityTableBody"><tr><td colspan="7">Loading data…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
     <section class="card" id="districtPerformanceDashboard">
       <h2>District Agricultural Performance Dashboard</h2>
       <p>Explore the reported 2025 Season B crop yields and district agricultural indicators. Rankings are descriptive comparisons, not a combined score or a measure of profitability.</p>
@@ -1584,6 +1619,110 @@
         renderMap();
       }).catch(err=>{
         statusEl.textContent="The district map could not load: "+err.message+". Please refresh and check your internet connection; the other District Explorer tools remain available.";
+      });
+    })();
+  </script>
+
+
+  <script>
+    (() => {
+      const cropSelect = document.getElementById("priorityCrop");
+      const filterSelect = document.getElementById("priorityFilter");
+      const status = document.getElementById("priorityStatus");
+      const tbody = document.getElementById("priorityTableBody");
+      const download = document.getElementById("downloadPriorityReport");
+      if (!cropSelect || !filterSelect || !tbody || !download) return;
+      let yieldRows = [], practiceRows = [], erosionRows = [], districts = [], currentRows = [];
+      const norm = s => String(s || "").trim().toLowerCase().replace(/\s+/g," ");
+      const numeric = v => v !== "" && v != null && Number.isFinite(Number(v)) ? Number(v) : null;
+      const median = values => {
+        const a = values.filter(v => v != null).sort((x,y)=>x-y);
+        if (!a.length) return null;
+        const m = Math.floor(a.length/2);
+        return a.length % 2 ? a[m] : (a[m-1]+a[m])/2;
+      };
+      const fmt = (v,unit) => v == null ? "Unavailable" : v.toLocaleString(undefined,{maximumFractionDigits:2}) + (unit ? " "+unit : "");
+      const escapeHtml = s => String(s).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+      function findDistrict(rows,name) { return rows.find(r=>norm(r.district)===norm(name)); }
+      function buildRows() {
+        const crop = cropSelect.value;
+        const cropVals = districts.map(d=> {
+          const r=yieldRows.find(x=>norm(x.district)===norm(d)&&norm(x.crop)===norm(crop));
+          const v=r?numeric(r.yield_kg_per_ha):null;
+          return v!=null&&v>0?v:null;
+        });
+        const yieldMedian=median(cropVals);
+        const erosionMedian=median(districts.map(d=>{const r=findDistrict(erosionRows,d);return r?numeric(r.severe_erosion_plots_pct):null;}));
+        const irrigationMedian=median(districts.map(d=>{const r=findDistrict(practiceRows,d);return r?numeric(r.irrigation_practice_pct):null;}));
+        const agroMedian=median(districts.map(d=>{const r=findDistrict(practiceRows,d);return r?numeric(r.agroforestry_practice_pct):null;}));
+        return districts.map(d=>{
+          const yr=yieldRows.find(x=>norm(x.district)===norm(d)&&norm(x.crop)===norm(crop));
+          const y=yr?numeric(yr.yield_kg_per_ha):null;
+          const er=findDistrict(erosionRows,d), pr=findDistrict(practiceRows,d);
+          const ev=er?numeric(er.severe_erosion_plots_pct):null;
+          const iv=pr?numeric(pr.irrigation_practice_pct):null;
+          const av=pr?numeric(pr.agroforestry_practice_pct):null;
+          const flags=[];
+          if(y!=null&&y>0&&yieldMedian!=null&&y<yieldMedian)flags.push("Crop yield below district median");
+          if(ev!=null&&erosionMedian!=null&&ev>erosionMedian)flags.push("Severe erosion above district median");
+          if(iv!=null&&irrigationMedian!=null&&iv<irrigationMedian)flags.push("Irrigation below district median");
+          if(av!=null&&agroMedian!=null&&av<agroMedian)flags.push("Agroforestry below district median");
+          return {district:d,crop,yield:y,yieldMedian,severeErosion:ev,erosionMedian,irrigation:iv,irrigationMedian,agroforestry:av,agroMedian,flags};
+        });
+      }
+      function render() {
+        if(!districts.length)return;
+        const all=buildRows();
+        const mode=filterSelect.value;
+        currentRows=all.filter(r=>{
+          if(mode==="multiple")return r.flags.length>=2;
+          if(mode==="yield")return r.flags.includes("Crop yield below district median");
+          if(mode==="erosion")return r.flags.includes("Severe erosion above district median");
+          if(mode==="irrigation")return r.flags.includes("Irrigation below district median");
+          if(mode==="agroforestry")return r.flags.includes("Agroforestry below district median");
+          return true;
+        }).sort((a,b)=>b.flags.length-a.flags.length||a.district.localeCompare(b.district));
+        tbody.innerHTML="";
+        if(!currentRows.length){tbody.innerHTML='<tr><td colspan="7">No districts match this filter. Missing values are not treated as flags.</td></tr>';}
+        currentRows.forEach(r=>{
+          const tr=document.createElement("tr");
+          const vals=[r.district,fmt(r.yield,"kg/ha"),fmt(r.severeErosion,"%"),fmt(r.irrigation,"%"),fmt(r.agroforestry,"%"),r.flags.length? r.flags.length+" indicator(s)":"No median flags",r.flags.length?r.flags.join("; "):"No screening flags"];
+          vals.forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.appendChild(td);});
+          tbody.appendChild(tr);
+        });
+        document.getElementById("priorityDistrictCount").textContent=all.length;
+        document.getElementById("priorityMultipleCount").textContent=all.filter(r=>r.flags.length>=2).length;
+        document.getElementById("priorityLowYieldCount").textContent=all.filter(r=>r.flags.includes("Crop yield below district median")).length;
+        document.getElementById("priorityHighErosionCount").textContent=all.filter(r=>r.flags.includes("Severe erosion above district median")).length;
+        status.textContent="Showing "+currentRows.length+" of "+all.length+" districts. Comparisons use available 2025 Season B crop-yield data and available practice/erosion indicators; no combined score is calculated.";
+        download.disabled=false;
+      }
+      function csvCell(v){const s=String(v==null?"":v);return '"'+s.replace(/"/g,'""')+'"';}
+      download.addEventListener("click",()=>{
+        const headers=["District","Crop","Crop yield (kg/ha)","Crop yield district median (kg/ha)","Severe erosion plots (%)","Severe erosion district median (%)","Irrigation practice (%)","Irrigation district median (%)","Agroforestry practice (%)","Agroforestry district median (%)","Number of screening flags","Screening flags","Year","Season","Source"];
+        const lines=[headers,...currentRows.map(r=>[r.district,r.crop,r.yield??"",r.yieldMedian??"",r.severeErosion??"",r.erosionMedian??"",r.irrigation??"",r.irrigationMedian??"",r.agroforestry??"",r.agroMedian??"",r.flags.length,r.flags.join("; "),2025,"B","AgriSmart Rwanda district datasets; NISR Seasonal Agricultural Survey 2025 Season B crop data"] )];
+        const csv="\uFEFF"+lines.map(row=>row.map(csvCell).join(",")).join("\r\n");
+        const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+        const url=URL.createObjectURL(blob);const a=document.createElement("a");
+        a.href=url;a.download="agrismart_district_agricultural_priority_report.csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+      });
+      Promise.all([
+        fetch("./data/processed/agrismart_district_crop_yield_2025.csv").then(r=>{if(!r.ok)throw Error("Crop-yield data could not be loaded");return r.text();}).then(t=>Papa.parse(t,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")})),
+        fetch("./data/processed/agrismart_district_agricultural_practices_2025.csv").then(r=>{if(!r.ok)throw Error("Practice data could not be loaded");return r.text();}).then(t=>Papa.parse(t,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")})),
+        fetch("./data/processed/agrismart_district_erosion_2025.csv").then(r=>{if(!r.ok)throw Error("Erosion data could not be loaded");return r.text();}).then(t=>Papa.parse(t,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")}))
+      ]).then(([y,p,e])=>{
+        yieldRows=(y.data||[]).filter(r=>Number(r.year)===2025&&String(r.season||"").trim().toUpperCase()==="B"&&r.district&&r.crop);
+        practiceRows=(p.data||[]).filter(r=>r.district);erosionRows=(e.data||[]).filter(r=>r.district);
+        districts=[...new Set([...yieldRows,...practiceRows,...erosionRows].map(r=>String(r.district).trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+        const crops=[...new Set(yieldRows.map(r=>String(r.crop).trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+        cropSelect.innerHTML="";
+        crops.forEach(crop=>{const o=document.createElement("option");o.value=crop;o.textContent=crop;cropSelect.appendChild(o);});
+        cropSelect.disabled=!crops.length;
+        if(!districts.length)throw Error("No district rows were found in the CSV files.");
+        cropSelect.addEventListener("change",render);filterSelect.addEventListener("change",render);render();
+      }).catch(err=>{
+        status.textContent="Unable to load priority data: "+err.message;
+        tbody.innerHTML='<tr><td colspan="7">Priority report unavailable. Please refresh the page and try again.</td></tr>';
       });
     })();
   </script>
