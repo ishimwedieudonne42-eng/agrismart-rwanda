@@ -110,8 +110,30 @@
       </div>
     </section>
 
+    <section class="card" id="cropPlanning">
+      <h2>3. Crop planning signals from historical data</h2>
+      <p class="muted">Choose a crop to compare its earliest and latest available Season B production and yield records. These signals can help frame planning discussions; they are not guaranteed recommendations or proof of what caused a change.</p>
+      <div class="controls">
+        <label class="field" for="planningCrop">Crop
+          <select id="planningCrop" disabled><option>Loading crop data…</option></select>
+        </label>
+      </div>
+      <p id="planningStatus" role="status" class="muted">Loading crop performance records…</p>
+      <div class="stats" id="planningStats">
+        <div class="stat"><span>Production trend</span><strong>—</strong><small>Historical comparison</small></div>
+        <div class="stat"><span>Yield trend</span><strong>—</strong><small>Historical comparison</small></div>
+        <div class="stat"><span>Latest reported production</span><strong>—</strong><small>Tonnes</small></div>
+        <div class="stat"><span>Latest reported yield</span><strong>—</strong><small>Tonnes per hectare</small></div>
+      </div>
+      <div id="planningQuestions" class="priority-grid" style="margin-top:16px" aria-live="polite"><p>Planning questions will appear when data loads.</p></div>
+      <div style="margin-top:18px;display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+        <button id="planningDownload" type="button" disabled>Download crop planning report (CSV)</button>
+        <span id="planningDownloadHelp" class="muted">Available after crop data loads.</span>
+      </div>
+    </section>
+
     <section class="card">
-      <h2>3. How to use these suggestions</h2>
+      <h2>4. How to use these suggestions</h2>
       <ol>
         <li>Use the comparison to decide which topic may deserve closer attention in the selected district.</li>
         <li>Ask local farmers and extension officers about soil conditions, water access, crop varieties, input availability, and other relevant factors.</li>
@@ -299,6 +321,101 @@
       }
     }
     init();
+  </script>
+  <script>
+    (function initCropPlanning() {
+      const source = './data/processed/agrismart_season_b_crop_data.csv';
+      let cropRows = [];
+      const byId = id => document.getElementById(id);
+      const num = value => value === '' || value === null || value === undefined || !Number.isFinite(Number(value)) ? null : Number(value);
+      const format = value => value === null ? 'Not available' : Number(value).toLocaleString('en-US', { maximumFractionDigits: 2 });
+      const percentChange = (first, last) => first === null || last === null || first === 0 ? null : ((last - first) / Math.abs(first)) * 100;
+      const changeText = value => value === null ? 'Insufficient data' : (value > 0 ? '+' : '') + format(value) + '%';
+      function getHistory(crop, key) {
+        return cropRows.filter(row => row.crop === crop && num(row.year) !== null && num(row[key]) !== null)
+          .sort((a,b) => Number(a.year) - Number(b.year));
+      }
+      function card(title, value, detail) {
+        const box = document.createElement('div'); box.className = 'stat';
+        const label = document.createElement('span'); label.textContent = title;
+        const strong = document.createElement('strong'); strong.textContent = value;
+        const small = document.createElement('small'); small.textContent = detail;
+        box.append(label, strong, small); return box;
+      }
+      function question(title, evidence, prompt) {
+        const article = document.createElement('article'); article.className = 'priority';
+        const heading = document.createElement('h3'); heading.textContent = title;
+        const p1 = document.createElement('p'); p1.textContent = evidence;
+        const p2 = document.createElement('p'); p2.style.marginTop = '10px'; p2.textContent = 'Question to investigate: ' + prompt;
+        article.append(heading, p1, p2); return article;
+      }
+      function currentReport() {
+        const crop = byId('planningCrop').value;
+        const production = getHistory(crop, 'production_mt'), yieldRows = getHistory(crop, 'yield_mt_per_ha');
+        const pFirst = production[0], pLast = production[production.length - 1];
+        const yFirst = yieldRows[0], yLast = yieldRows[yieldRows.length - 1];
+        return {crop, production, yieldRows, pFirst, pLast, yFirst, yLast,
+          pChange: production.length >= 2 ? percentChange(num(pFirst.production_mt), num(pLast.production_mt)) : null,
+          yChange: yieldRows.length >= 2 ? percentChange(num(yFirst.yield_mt_per_ha), num(yLast.yield_mt_per_ha)) : null};
+      }
+      function render() {
+        const report = currentReport();
+        if (!report.crop) return;
+        const {crop, production, yieldRows, pFirst, pLast, yFirst, yLast, pChange, yChange} = report;
+        byId('planningStats').replaceChildren(
+          card('Production trend', changeText(pChange), pFirst && pLast ? pFirst.year + ' to ' + pLast.year : 'At least two years needed'),
+          card('Yield trend', changeText(yChange), yFirst && yLast ? yFirst.year + ' to ' + yLast.year : 'At least two years needed'),
+          card('Latest reported production', pLast ? format(num(pLast.production_mt)) : 'Not available', pLast ? 'Tonnes · ' + pLast.year : 'No valid records'),
+          card('Latest reported yield', yLast ? format(num(yLast.yield_mt_per_ha)) : 'Not available', yLast ? 'Tonnes/ha · ' + yLast.year : 'No valid records')
+        );
+        const questions = byId('planningQuestions'); questions.replaceChildren();
+        if (pChange !== null && pChange < 0) questions.append(question('Production declined in the available records',
+          crop + ' production changed by ' + changeText(pChange) + ' between ' + pFirst.year + ' and ' + pLast.year + '.',
+          'Did planted area, weather, pest pressure, access to inputs, or reporting methods change? Verify these factors locally before deciding what action to take.'));
+        else if (pChange !== null && pChange > 0) questions.append(question('Production increased in the available records',
+          crop + ' production changed by ' + changeText(pChange) + ' between ' + pFirst.year + ' and ' + pLast.year + '.',
+          'Was the change associated with harvested area, yield, or both? Check the underlying records and local context before drawing conclusions.'));
+        else questions.append(question('Review production evidence',
+          'A production trend could not be established confidently from the available valid records.',
+          'Are enough comparable years available, and are there missing values or changes in the way the data was collected?'));
+        if (yChange !== null && yChange < 0) questions.append(question('Yield declined in the available records',
+          crop + ' yield changed by ' + changeText(yChange) + ' between ' + yFirst.year + ' and ' + yLast.year + '.',
+          'Discuss soil conditions, rainfall, crop varieties, pests, and input access with local agronomists; the dataset cannot identify the cause.'));
+        else if (yChange !== null && yChange > 0) questions.append(question('Yield increased in the available records',
+          crop + ' yield changed by ' + changeText(yChange) + ' between ' + yFirst.year + ' and ' + yLast.year + '.',
+          'Which local practices or conditions may be worth studying further, and can the pattern be confirmed in additional seasons?'));
+        else questions.append(question('Review yield evidence',
+          'A clear yield trend could not be established from the available valid records.',
+          'Check whether comparable observations exist across multiple years and confirm them against the original source tables.'));
+        byId('planningStatus').textContent = 'Loaded ' + cropRows.length + ' crop records. Production has ' + production.length + ' valid year records; yield has ' + yieldRows.length + '.';
+        byId('planningDownload').disabled = false;
+        byId('planningDownloadHelp').textContent = 'Report ready for ' + crop + '.';
+      }
+      function download() {
+        const r = currentReport();
+        const data = [
+          {Crop:r.crop,Metric:'Production (tonnes)',Record:'Earliest available',Year:r.pFirst?.year ?? '',Value:r.pFirst ? r.pFirst.production_mt : '',Change:'',Interpretation:'Historical reported value'},
+          {Crop:r.crop,Metric:'Production (tonnes)',Record:'Latest available',Year:r.pLast?.year ?? '',Value:r.pLast ? r.pLast.production_mt : '',Change:changeText(r.pChange),Interpretation:'Change is descriptive, not causal'},
+          {Crop:r.crop,Metric:'Yield (tonnes/ha)',Record:'Earliest available',Year:r.yFirst?.year ?? '',Value:r.yFirst ? r.yFirst.yield_mt_per_ha : '',Change:'',Interpretation:'Historical reported value'},
+          {Crop:r.crop,Metric:'Yield (tonnes/ha)',Record:'Latest available',Year:r.yLast?.year ?? '',Value:r.yLast ? r.yLast.yield_mt_per_ha : '',Change:changeText(r.yChange),Interpretation:'Change is descriptive, not causal'}
+        ];
+        const csv = String.fromCharCode(65279) + Papa.unparse(data, {quotes:true, delimiter:','});
+        const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+        const url = URL.createObjectURL(blob), link = document.createElement('a');
+        link.href = url; link.download = 'agrismart_crop_planning_' + r.crop.toLowerCase().replace(/[^a-z0-9]+/g,'_') + '.csv';
+        document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+      }
+      byId('planningCrop').addEventListener('change', render);
+      byId('planningDownload').addEventListener('click', download);
+      Papa.parse(source, {download:true, header:true, skipEmptyLines:true, dynamicTyping:true, complete: result => {
+        cropRows = result.data.filter(row => row.crop && num(row.year) !== null).map(row => ({...row, crop:String(row.crop).trim()}));
+        const crops = [...new Set(cropRows.map(row => row.crop))].sort((a,b) => a.localeCompare(b));
+        if (!crops.length) { byId('planningStatus').textContent = 'No crop records found. Check the published CSV path and column names.'; return; }
+        byId('planningCrop').replaceChildren(...crops.map(crop => new Option(crop,crop)));
+        byId('planningCrop').value = crops.find(crop => crop.toLowerCase() === 'maize') || crops[0];
+        byId('planningCrop').disabled = false; render();
+      }, error: () => { byId('planningStatus').textContent = 'Could not load crop records. Confirm the crop dataset is published.'; }});
+    })();
   </script>
 </body>
 </html>
