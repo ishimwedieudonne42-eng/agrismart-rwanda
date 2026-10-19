@@ -1846,7 +1846,7 @@
       });
       tbody.replaceChildren();
       if(!currentRows.length){const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=6;td.textContent="No records available for this crop.";tr.appendChild(td);tbody.appendChild(tr);}
-      currentRows.forEach(r=>{const tr=document.createElement("tr");[r.district,fmt(r.yield),fmt(r.median),fmt(r.lowerThreshold),fmt(r.upperThreshold),r.status].forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.appendChild(td);});tbody.appendChild(tr);});
+      currentRows.forEach(r=>{const tr=document.createElement("tr");[r.district,r.yield!=null&&r.yield>0?fmt(r.yield):"Unavailable",fmt(r.median),fmt(r.lowerThreshold),fmt(r.upperThreshold),r.status].forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.appendChild(td);});tbody.appendChild(tr);});
       document.getElementById("outlierValidCount").textContent=valid.length;
       document.getElementById("outlierLowCount").textContent=currentRows.filter(r=>r.status==="Review: unusually low").length;
       document.getElementById("outlierHighCount").textContent=currentRows.filter(r=>r.status==="Review: unusually high").length;
