@@ -2069,5 +2069,75 @@
   })();
   </script>
 
+
+  <section class="card" id="cropYieldQualityCheck" style="margin-top:1.5rem;">
+    <h2>Crop Yield Data Validation &amp; Quality Review</h2>
+    <p>Screen the district crop-yield dataset for records that may need checking before analysis. These are review flags, not proof that the source data is wrong. Reported zero yields are listed separately and are not automatically classified as errors.</p>
+    <p id="yieldQualityStatus" class="compare-note" role="status" aria-live="polite">Loading crop-yield records...</p>
+    <div class="ranking-grid">
+      <div class="ranking-card"><div class="ranking-label">Records checked</div><div class="ranking-value" id="yqTotal">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Records flagged for review</div><div class="ranking-value" id="yqFlagged">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Reported zero yields</div><div class="ranking-value" id="yqZeros">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Missing/invalid yield values</div><div class="ranking-value" id="yqInvalid">—</div></div>
+    </div>
+    <h3>Review flags</h3>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>Row</th><th>District</th><th>Crop</th><th>Reported yield (kg/ha)</th><th>Year</th><th>Season</th><th>Review reason</th></tr></thead>
+        <tbody id="yieldQualityBody"><tr><td colspan="7">Loading...</td></tr></tbody>
+      </table>
+    </div>
+    <button id="downloadYieldQuality" type="button" disabled style="padding:11px 14px;border:0;border-radius:7px;background:#17643e;color:white;font-weight:bold;cursor:pointer;margin-top:12px;">Download data-quality review (CSV)</button>
+    <p class="compare-note">Checks include missing district/crop/year/season fields, missing or non-numeric yields, negative yields, duplicate district-crop-year-season keys, and reported zeros. Confirm flagged records against the original NISR tables before correcting or excluding data.</p>
+  </section>
+  <script>
+  (() => {
+    const status=document.getElementById("yieldQualityStatus"),tbody=document.getElementById("yieldQualityBody"),download=document.getElementById("downloadYieldQuality");
+    const num=v=>{const s=String(v??"").trim(),n=Number(s);return s!==""&&Number.isFinite(n)?n:null;};
+    const csvCell=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"';
+    let review=[];
+    fetch("./data/processed/agrismart_district_crop_yield_2025.csv").then(r=>{if(!r.ok)throw new Error("Crop-yield dataset could not be loaded");return r.text();}).then(raw=>{
+      const parsed=Papa.parse(raw,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")});
+      const rows=parsed.data||[],seen=new Set(),duplicateKeys=new Set();
+      rows.forEach(r=>{
+        const key=[r.district,r.crop,r.year,r.season].map(v=>String(v??"").trim().toLowerCase()).join("|");
+        if(r.district&&r.crop&&String(r.year??"").trim()&&r.season){if(seen.has(key))duplicateKeys.add(key);seen.add(key);}
+      });
+      review=[];
+      rows.forEach((r,i)=>{
+        const district=String(r.district??"").trim(),crop=String(r.crop??"").trim(),year=String(r.year??"").trim(),season=String(r.season??"").trim();
+        const rawYield=String(r.yield_kg_per_ha??"").trim(),yieldValue=num(r.yield_kg_per_ha),issues=[];
+        if(!district)issues.push("Missing district");
+        if(!crop)issues.push("Missing crop");
+        if(!year||!Number.isFinite(Number(year)))issues.push("Missing or invalid year");
+        if(!season)issues.push("Missing season");
+        if(rawYield===""||yieldValue==null)issues.push("Missing or non-numeric yield");
+        else if(yieldValue<0)issues.push("Negative yield; verify source");
+        else if(yieldValue===0)issues.push("Reported zero yield; verify interpretation");
+        const key=[district,crop,year,season].map(v=>v.toLowerCase()).join("|");
+        if(district&&crop&&year&&season&&duplicateKeys.has(key))issues.push("Duplicate district-crop-year-season key");
+        if(issues.length)review.push({row:i+2,district,crop,yield:rawYield,year,season,reason:issues.join("; "),source:r.source||r.source_table||"NISR Seasonal Agricultural Survey 2025, Season B"});
+      });
+      const zeroCount=rows.filter(r=>num(r.yield_kg_per_ha)===0).length;
+      const invalidCount=rows.filter(r=>String(r.yield_kg_per_ha??"").trim()===""||num(r.yield_kg_per_ha)==null||num(r.yield_kg_per_ha)<0).length;
+      document.getElementById("yqTotal").textContent=String(rows.length);
+      document.getElementById("yqFlagged").textContent=String(review.length);
+      document.getElementById("yqZeros").textContent=String(zeroCount);
+      document.getElementById("yqInvalid").textContent=String(invalidCount);
+      tbody.replaceChildren();
+      if(!review.length){const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=7;td.textContent="No records were flagged by these checks.";tr.appendChild(td);tbody.appendChild(tr);}
+      review.forEach(r=>{const tr=document.createElement("tr");[String(r.row),r.district||"Missing",r.crop||"Missing",r.yield===""?"Missing":r.yield,r.year||"Missing",r.season||"Missing",r.reason].forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.appendChild(td);});tbody.appendChild(tr);});
+      status.textContent="Checked "+rows.length+" dataset records. "+review.length+" record(s) are listed for review; a record may have more than one flag.";
+      download.disabled=false;
+    }).catch(err=>{status.textContent="Unable to validate crop-yield data: "+err.message;tbody.innerHTML='<tr><td colspan="7">Data-quality review unavailable. Refresh and try again.</td></tr>';});
+    download.addEventListener("click",()=>{
+      const headers=["CSV data row (including header offset)","District","Crop","Reported yield (kg/ha)","Year","Season","Review reason","Source"];
+      const lines=[headers,...review.map(r=>[r.row,r.district,r.crop,r.yield,r.year,r.season,r.reason,r.source])];
+      const blob=new Blob(["\uFEFF"+lines.map(row=>row.map(csvCell).join(",")).join("\r\n")],{type:"text/csv;charset=utf-8;"});
+      const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="agrismart_crop_yield_data_quality_review.csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    });
+  })();
+  </script>
+
 </body>
 </html>
