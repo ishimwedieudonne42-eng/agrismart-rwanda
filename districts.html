@@ -1728,5 +1728,66 @@
     })();
   </script>
 
+
+  <section id="dataCoverageDashboard" class="dashboard-section" style="margin:2rem auto;padding:1.25rem;max-width:1200px;border:1px solid #dbe3ea;border-radius:16px;background:var(--card-bg, #fff);">
+    <h2>District Agricultural Data Coverage &amp; Quality</h2>
+    <p>Check how much district-level data is available in the three AgriSmart datasets before comparing districts or interpreting indicators.</p>
+    <div id="coverageStatus" role="status" aria-live="polite">Loading dataset coverage…</div>
+    <div style="overflow-x:auto;margin-top:1rem;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr><th style="text-align:left;padding:.65rem;border-bottom:2px solid #cbd5e1;">Dataset</th><th style="text-align:right;padding:.65rem;border-bottom:2px solid #cbd5e1;">Rows</th><th style="text-align:right;padding:.65rem;border-bottom:2px solid #cbd5e1;">Districts</th><th style="text-align:right;padding:.65rem;border-bottom:2px solid #cbd5e1;">Numeric fields</th><th style="text-align:right;padding:.65rem;border-bottom:2px solid #cbd5e1;">Missing numeric cells</th><th style="text-align:right;padding:.65rem;border-bottom:2px solid #cbd5e1;">Completeness</th></tr></thead>
+        <tbody id="coverageTableBody"><tr><td colspan="6" style="padding:.75rem;">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <p id="coverageNote" style="font-size:.92rem;margin-top:1rem;">Completeness measures blank/missing numeric cells only. A recorded zero is counted as present, not missing. For crop yields, a zero may still indicate that a crop was not reported as harvested; check the source and context before interpreting it as a true zero yield.</p>
+    <button id="downloadCoverageCsv" type="button" disabled style="margin-top:.5rem;padding:.7rem 1rem;border:0;border-radius:8px;cursor:pointer;">Download coverage report (CSV)</button>
+  </section>
+  <script>
+  (() => {
+    const status = document.getElementById("coverageStatus");
+    const body = document.getElementById("coverageTableBody");
+    const download = document.getElementById("downloadCoverageCsv");
+    let reportRows = [];
+    const datasets = [
+      {name:"Crop yield (2025 Season B)",path:"./data/processed/agrismart_district_crop_yield_2025.csv", district:"district", numeric:["yield_kg_per_ha"], filter:r=>Number(r.year)===2025&&String(r.season||"").trim().toUpperCase()==="B"},
+      {name:"Agricultural practices (2025)",path:"./data/processed/agrismart_district_agricultural_practices_2025.csv", district:"district", numeric:["land_protected_against_erosion_pct","land_protected_against_erosion_ssf_pct","land_protected_against_erosion_lsf_pct","mechanical_equipment_use_pct","mechanical_equipment_use_ssf_pct","mechanical_equipment_use_lsf_pct","irrigation_practice_pct","irrigation_practice_ssf_pct","irrigation_practice_lsf_pct","agroforestry_practice_pct","agroforestry_practice_ssf_pct","agroforestry_practice_lsf_pct"]},
+      {name:"Erosion indicators (2025)",path:"./data/processed/agrismart_district_erosion_2025.csv", district:"district", numeric:["severe_erosion_plots_pct","moderate_erosion_plots_pct","low_erosion_plots_pct","very_low_erosion_plots_pct"]}
+    ];
+    const cell = value => {const td=document.createElement("td");td.style.cssText="padding:.65rem;border-bottom:1px solid #e2e8f0;text-align:right;";td.textContent=value;return td;};
+    const textCell = value => {const td=cell(value);td.style.textAlign="left";return td;};
+    const csvCell = value => '"' + String(value == null ? "" : value).replace(/"/g,'""') + '"';
+    Promise.all(datasets.map(ds=>fetch(ds.path).then(response=>{if(!response.ok)throw new Error("Could not load "+ds.name);return response.text();}).then(raw=>({ds,rows:Papa.parse(raw,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")}).data}))))
+      .then(results=>{
+        reportRows=results.map(({ds,rows})=>{
+          const eligible=rows.filter(r=>!ds.filter||ds.filter(r));
+          const numericFields=ds.numeric.filter(key=>eligible.some(r=>Object.prototype.hasOwnProperty.call(r,key)));
+          let total=0,missing=0;
+          eligible.forEach(r=>numericFields.forEach(key=>{total++;const v=String(r[key]??"").trim();if(v===""||v.toLowerCase()==="na"||v.toLowerCase()==="n/a"||v.toLowerCase()==="null")missing++;}));
+          const districts=new Set(eligible.map(r=>String(r[ds.district]||"").trim()).filter(Boolean)).size;
+          const completeness=total?100*(total-missing)/total:0;
+          return {dataset:ds.name,rows:eligible.length,districts,numericFields:numericFields.length,missingNumericCells:missing,totalNumericCells:total,completenessPercent:Number(completeness.toFixed(2))};
+        });
+        body.replaceChildren();
+        reportRows.forEach(r=>{
+          const tr=document.createElement("tr");
+          tr.append(textCell(r.dataset),cell(r.rows),cell(r.districts),cell(r.numericFields),cell(r.missingNumericCells),cell(r.completenessPercent.toFixed(2)+"%"));
+          body.appendChild(tr);
+        });
+        status.textContent="Coverage summary loaded successfully for all "+reportRows.length+" datasets.";
+        download.disabled=false;
+      }).catch(error=>{
+        status.textContent="Coverage report could not load: "+error.message+". Refresh the page and try again.";
+        body.replaceChildren();
+        const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=6;td.style.padding=".75rem";td.textContent="Coverage data is unavailable.";tr.appendChild(td);body.appendChild(tr);
+      });
+    download.addEventListener("click",()=>{
+      const headers=["Dataset","Rows","Distinct districts","Numeric fields counted","Missing numeric cells","Total numeric cells","Completeness (%)"];
+      const lines=[headers,...reportRows.map(r=>[r.dataset,r.rows,r.districts,r.numericFields,r.missingNumericCells,r.totalNumericCells,r.completenessPercent])];
+      const blob=new Blob(["\uFEFF"+lines.map(row=>row.map(csvCell).join(",")).join("\r\n")],{type:"text/csv;charset=utf-8;"});
+      const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="agrismart_district_data_coverage_report.csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    });
+  })();
+  </script>
+
 </body>
 </html>
