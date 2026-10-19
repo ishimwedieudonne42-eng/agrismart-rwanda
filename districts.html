@@ -2349,5 +2349,78 @@
   })();
   </script>
 
+
+  <section class="card" id="cropYieldBenchmarkBands" style="margin-top:1.5rem;">
+    <h2>Crop Yield Benchmark Bands</h2>
+    <p>Classify district yields for a selected crop against the distribution of positive reported yields in the available 2025 Season B dataset. The bands describe relative position, not agronomic standards or guaranteed production potential.</p>
+    <div class="compare-controls">
+      <div class="compare-field"><label for="benchmarkBandCrop">Crop</label><select id="benchmarkBandCrop" disabled><option>Loading crops...</option></select></div>
+    </div>
+    <p id="benchmarkBandStatus" class="compare-note" role="status" aria-live="polite">Loading district crop-yield records...</p>
+    <div class="ranking-grid">
+      <div class="ranking-card"><div class="ranking-label">Positive-yield districts</div><div class="ranking-value" id="bbCount">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Below lower quartile (Q1)</div><div class="ranking-value" id="bbLow">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Middle 50% band</div><div class="ranking-value" id="bbMiddle">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Above upper quartile (Q3)</div><div class="ranking-value" id="bbHigh">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Q1 benchmark (kg/ha)</div><div class="ranking-value" id="bbQ1">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Q3 benchmark (kg/ha)</div><div class="ranking-value" id="bbQ3">—</div></div>
+    </div>
+    <h3>District benchmark classification</h3>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>Rank</th><th>District</th><th>Reported yield (kg/ha)</th><th>Band</th><th>Difference from Q1 (kg/ha)</th><th>Difference from Q3 (kg/ha)</th></tr></thead>
+        <tbody id="benchmarkBandBody"><tr><td colspan="6">Loading...</td></tr></tbody>
+      </table>
+    </div>
+    <button id="downloadBenchmarkBands" type="button" disabled style="padding:11px 14px;border:0;border-radius:7px;background:#17643e;color:white;font-weight:bold;cursor:pointer;margin-top:12px;">Download benchmark bands (CSV)</button>
+    <p class="compare-note">Quartiles use linear interpolation. Only positive numeric yields define the thresholds. Values exactly equal to Q1 or Q3 are placed in the middle 50% band; zero, missing, and invalid values are listed as unavailable.</p>
+  </section>
+  <script>
+  (() => {
+    const select=document.getElementById("benchmarkBandCrop"),status=document.getElementById("benchmarkBandStatus");
+    const tbody=document.getElementById("benchmarkBandBody"),download=document.getElementById("downloadBenchmarkBands");
+    const num=v=>{const s=String(v??"").trim(),n=Number(s);return s!==""&&Number.isFinite(n)?n:null;};
+    const fmt=v=>v==null?"Unavailable":v.toLocaleString(undefined,{maximumFractionDigits:2});
+    const csvCell=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"';
+    const percentile=(sorted,p)=>{if(!sorted.length)return null;const pos=(sorted.length-1)*p,lo=Math.floor(pos),hi=Math.ceil(pos);return sorted[lo]+(sorted[hi]-sorted[lo])*(pos-lo);};
+    let rows=[],report=[];
+    function render(){
+      const crop=select.value,all=rows.filter(r=>r.crop===crop);
+      const valid=all.filter(r=>r.yield!=null&&r.yield>0),values=valid.map(r=>r.yield).sort((a,b)=>a-b);
+      const q1=percentile(values,.25),q3=percentile(values,.75);
+      report=all.map(r=>{
+        const ok=r.yield!=null&&r.yield>0;
+        const band=!ok?"Unavailable":r.yield<q1?"Below Q1":r.yield>q3?"Above Q3":"Middle 50%";
+        return {district:r.district,crop,yield:ok?r.yield:null,band,q1,q3,diffQ1:ok&&q1!=null?r.yield-q1:null,diffQ3:ok&&q3!=null?r.yield-q3:null,year:r.year,season:r.season,source:r.source};
+      }).sort((a,b)=>(a.yield==null?1:b.yield==null?-1:b.yield-a.yield)||a.district.localeCompare(b.district));
+      document.getElementById("bbCount").textContent=String(valid.length);
+      document.getElementById("bbLow").textContent=String(valid.filter(r=>r.yield<q1).length);
+      document.getElementById("bbMiddle").textContent=String(valid.filter(r=>r.yield>=q1&&r.yield<=q3).length);
+      document.getElementById("bbHigh").textContent=String(valid.filter(r=>r.yield>q3).length);
+      document.getElementById("bbQ1").textContent=fmt(q1);document.getElementById("bbQ3").textContent=fmt(q3);
+      tbody.replaceChildren();
+      if(!report.length){const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=6;td.textContent="No district records found for this crop.";tr.appendChild(td);tbody.appendChild(tr);}
+      report.forEach((r,i)=>{const tr=document.createElement("tr");[r.yield==null?"—":String(i+1),r.district,fmt(r.yield),r.band,fmt(r.diffQ1),fmt(r.diffQ3)].forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.appendChild(td);});tbody.appendChild(tr);});
+      status.textContent="Showing "+all.length+" district records for "+crop+"; quartile thresholds are calculated from "+valid.length+" positive yields.";
+      download.disabled=!report.length;
+    }
+    select.addEventListener("change",render);
+    fetch("./data/processed/agrismart_district_crop_yield_2025.csv").then(r=>{if(!r.ok)throw new Error("Crop-yield dataset could not be loaded");return r.text();}).then(raw=>{
+      const parsed=Papa.parse(raw,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")});
+      rows=(parsed.data||[]).filter(r=>r.district&&r.crop&&Number(r.year)===2025&&String(r.season||"").trim().toUpperCase()==="B").map(r=>({district:String(r.district).trim(),crop:String(r.crop).trim(),yield:num(r.yield_kg_per_ha),year:Number(r.year),season:String(r.season||"").trim().toUpperCase(),source:r.source||r.source_table||"NISR Seasonal Agricultural Survey 2025, Season B"}));
+      const crops=[...new Set(rows.map(r=>r.crop))].sort((a,b)=>a.localeCompare(b));
+      select.replaceChildren();crops.forEach(c=>{const o=document.createElement("option");o.value=c;o.textContent=c;select.appendChild(o);});
+      select.disabled=!crops.length;if(!crops.length)throw new Error("No crop records were found.");render();
+    }).catch(err=>{status.textContent="Unable to load benchmark bands: "+err.message;tbody.innerHTML='<tr><td colspan="6">Benchmark bands unavailable. Refresh and try again.</td></tr>';});
+    download.addEventListener("click",()=>{
+      if(!report.length)return;
+      const headers=["Rank","District","Crop","Reported yield (kg/ha)","Benchmark band","Q1 (kg/ha)","Q3 (kg/ha)","Difference from Q1 (kg/ha)","Difference from Q3 (kg/ha)","Year","Season","Source"];
+      const lines=[headers,...report.map((r,i)=>[r.yield==null?"":i+1,r.district,r.crop,r.yield??"",r.band,r.q1??"",r.q3??"",r.diffQ1??"",r.diffQ3??"",r.year,r.season,r.source])];
+      const blob=new Blob(["\uFEFF"+lines.map(row=>row.map(csvCell).join(",")).join("\r\n")],{type:"text/csv;charset=utf-8;"});
+      const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="agrismart_crop_yield_benchmark_bands.csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    });
+  })();
+  </script>
+
 </body>
 </html>
