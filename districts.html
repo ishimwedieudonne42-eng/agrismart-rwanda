@@ -1872,5 +1872,88 @@
   })();
   </script>
 
+
+  <section class="card" id="districtSeasonComparison" style="margin-top:1.5rem;">
+    <h2>District Crop Yield Season Comparison</h2>
+    <p>Compare the same crop and district across two available survey periods. This report only compares periods present in the uploaded dataset; it does not invent missing seasons or years.</p>
+    <div class="compare-controls">
+      <div class="compare-field"><label for="seasonCompareCrop">Crop</label><select id="seasonCompareCrop" disabled><option>Loading crops...</option></select></div>
+      <div class="compare-field"><label for="seasonCompareDistrict">District</label><select id="seasonCompareDistrict" disabled><option>Loading districts...</option></select></div>
+      <div class="compare-field"><label for="seasonComparePeriodA">Earlier period</label><select id="seasonComparePeriodA" disabled><option>Loading periods...</option></select></div>
+      <div class="compare-field"><label for="seasonComparePeriodB">Later period</label><select id="seasonComparePeriodB" disabled><option>Loading periods...</option></select></div>
+    </div>
+    <p id="seasonCompareStatus" class="compare-note" role="status" aria-live="polite">Loading available crop-yield records...</p>
+    <div class="ranking-grid">
+      <div class="ranking-card"><div class="ranking-label">Earlier reported yield</div><div class="ranking-value" id="seasonYieldA">—</div><div class="ranking-yield" id="seasonPeriodLabelA">Select period</div></div>
+      <div class="ranking-card"><div class="ranking-label">Later reported yield</div><div class="ranking-value" id="seasonYieldB">—</div><div class="ranking-yield" id="seasonPeriodLabelB">Select period</div></div>
+      <div class="ranking-card"><div class="ranking-label">Absolute difference</div><div class="ranking-value" id="seasonYieldDiff">—</div><div class="ranking-yield">Later minus earlier (kg/ha)</div></div>
+      <div class="ranking-card"><div class="ranking-label">Percentage change</div><div class="ranking-value" id="seasonYieldPct">—</div><div class="ranking-yield">Only when earlier yield is positive</div></div>
+    </div>
+    <h3>Comparison summary</h3>
+    <div class="compare-card" id="seasonCompareSummary">Choose a crop, district, and two periods.</div>
+    <button id="downloadSeasonCompare" type="button" disabled style="padding:11px 14px;border:0;border-radius:7px;background:#17643e;color:white;font-weight:bold;cursor:pointer;margin-top:12px;">Download season comparison (CSV)</button>
+    <p class="compare-note">Zero and missing yields are shown as unavailable for yield comparisons because the source data may use zero where production was not reported. Percentage change is not calculated if the earlier yield is unavailable or zero. Different survey periods may reflect weather, crop mix, sampling, and other factors; this comparison does not establish causes.</p>
+  </section>
+  <script>
+  (() => {
+    const crop=document.getElementById("seasonCompareCrop"), district=document.getElementById("seasonCompareDistrict");
+    const periodA=document.getElementById("seasonComparePeriodA"), periodB=document.getElementById("seasonComparePeriodB");
+    const status=document.getElementById("seasonCompareStatus"), summary=document.getElementById("seasonCompareSummary"), download=document.getElementById("downloadSeasonCompare");
+    const els={a:document.getElementById("seasonYieldA"),b:document.getElementById("seasonYieldB"),diff:document.getElementById("seasonYieldDiff"),pct:document.getElementById("seasonYieldPct"),la:document.getElementById("seasonPeriodLabelA"),lb:document.getElementById("seasonPeriodLabelB")};
+    let rows=[], report=null;
+    const number=v=>{const s=String(v??"").trim(),n=Number(s);return s!==""&&Number.isFinite(n)?n:null;};
+    const key=r=>String(r.year)+" Season "+String(r.season||"").trim().toUpperCase();
+    const fmt=v=>v==null?"Unavailable":v.toLocaleString(undefined,{maximumFractionDigits:2});
+    const csvCell=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"';
+    function fill(select,values){select.replaceChildren();values.forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=v;select.appendChild(o);});select.disabled=!values.length;}
+    function periodsForSelection(){
+      const periods=[...new Set(rows.filter(r=>r.crop===crop.value&&r.district===district.value).map(key))].sort((a,b)=>{const aa=a.match(/^(\d+) Season ([A-Z]+)$/),bb=b.match(/^(\d+) Season ([A-Z]+)$/);return Number(aa?.[1])-Number(bb?.[1])||(aa?.[2]||"").localeCompare(bb?.[2]||"");});
+      const oldA=periodA.value,oldB=periodB.value;fill(periodA,periods);fill(periodB,periods);
+      if(periods.includes(oldA))periodA.value=oldA;
+      if(periods.includes(oldB))periodB.value=oldB;
+      if(periods.length>1){periodA.value=periods[0];periodB.value=periods[periods.length-1];}
+      render();
+    }
+    function find(period){const r=rows.find(x=>x.crop===crop.value&&x.district===district.value&&key(x)===period);return r&&r.yield!=null&&r.yield>0?r:null;}
+    function render(){
+      const a=find(periodA.value),b=find(periodB.value);
+      const labelA=periodA.value||"No period",labelB=periodB.value||"No period";
+      els.la.textContent=labelA;els.lb.textContent=labelB;
+      els.a.textContent=a?fmt(a.yield)+" kg/ha":"Unavailable";
+      els.b.textContent=b?fmt(b.yield)+" kg/ha":"Unavailable";
+      const diff=a&&b?b.yield-a.yield:null,pct=a&&b&&a.yield>0?((b.yield-a.yield)/a.yield)*100:null;
+      els.diff.textContent=diff==null?"Unavailable":(diff>0?"+":"")+fmt(diff)+" kg/ha";
+      els.pct.textContent=pct==null?"Unavailable":(pct>0?"+":"")+fmt(pct)+"%";
+      if(!crop.value||!district.value||!periodA.value||!periodB.value){summary.textContent="Select a crop, district, and two available periods.";report=null;download.disabled=true;status.textContent="Select available values to compare.";return;}
+      if(periodA.value===periodB.value){summary.textContent="Choose two different periods to calculate a change.";report=null;download.disabled=true;status.textContent="The two periods must be different.";return;}
+      if(!a||!b){summary.textContent="One or both periods have no positive reported yield for this crop and district. Check the source records before drawing conclusions.";report=null;download.disabled=true;status.textContent="Comparison incomplete: at least one period has an unavailable yield.";return;}
+      const earlier=periodA.value, later=periodB.value;
+      const direction=diff>0?"increased":diff<0?"decreased":"did not change";
+      summary.textContent=crop.value+" yield in "+district.value+" "+direction+" from "+fmt(a.yield)+" kg/ha ("+earlier+") to "+fmt(b.yield)+" kg/ha ("+later+"). The absolute difference is "+(diff>0?"+":"")+fmt(diff)+" kg/ha"+(pct==null?".":" ("+(pct>0?"+":"")+fmt(pct)+"%).")+" This describes the reported records and does not explain the cause.";
+      report={district:district.value,crop:crop.value,periodA:earlier,yieldA:a.yield,periodB:later,yieldB:b.yield,absoluteDifference:Number(diff.toFixed(4)),percentageChange:pct==null?"":Number(pct.toFixed(4)),sourceA:a.source,sourceB:b.source};
+      download.disabled=false;status.textContent="Comparison ready using two available positive reported yields.";
+    }
+    crop.addEventListener("change",periodsForSelection);
+    district.addEventListener("change",periodsForSelection);
+    periodA.addEventListener("change",render);periodB.addEventListener("change",render);
+    fetch("./data/processed/agrismart_district_crop_yield_2025.csv").then(r=>{if(!r.ok)throw new Error("Crop-yield data could not be loaded");return r.text();}).then(raw=>{
+      const parsed=Papa.parse(raw,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")});
+      rows=(parsed.data||[]).filter(r=>r.district&&r.crop&&r.year&&r.season).map(r=>({district:String(r.district).trim(),crop:String(r.crop).trim(),year:String(r.year).trim(),season:String(r.season).trim().toUpperCase(),yield:number(r.yield_kg_per_ha),source:r.source||r.source_table||"Agricultural district crop-yield dataset"}));
+      const crops=[...new Set(rows.map(r=>r.crop))].sort((a,b)=>a.localeCompare(b)),districts=[...new Set(rows.map(r=>r.district))].sort((a,b)=>a.localeCompare(b));
+      fill(crop,crops);fill(district,districts);
+      if(!crops.length||!districts.length)throw new Error("No crop or district values were found.");
+      crop.value=crops[0];district.value=districts[0];periodsForSelection();
+      status.textContent="Loaded "+rows.length+" crop-yield records. Period choices reflect the actual records in this dataset.";
+    }).catch(err=>{status.textContent="Unable to load comparison data: "+err.message;summary.textContent="Comparison is unavailable. Refresh and try again.";});
+    download.addEventListener("click",()=>{
+      if(!report)return;
+      const headers=["District","Crop","Earlier period","Earlier yield (kg/ha)","Later period","Later yield (kg/ha)","Absolute difference (kg/ha)","Percentage change (%)","Earlier source","Later source"];
+      const values=[report.district,report.crop,report.periodA,report.yieldA,report.periodB,report.yieldB,report.absoluteDifference,report.percentageChange,report.sourceA,report.sourceB];
+      const blob=new Blob(["\uFEFF"+[headers,values].map(row=>row.map(csvCell).join(",")).join("\r\n")],{type:"text/csv;charset=utf-8;"});
+      const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="agrismart_district_crop_yield_period_comparison.csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    });
+  })();
+  </script>
+
 </body>
 </html>
