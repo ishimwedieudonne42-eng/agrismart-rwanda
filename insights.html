@@ -247,6 +247,14 @@
       <p class="muted" style="margin-top:12px;">N/A means the source value is missing or unavailable. Percentage-point differences are calculated only when both values are available.</p>
     </section>
     <section class="card">
+      <h2>Download all district indicators</h2>
+      <p class="muted">Export the loaded district-level agricultural practice and soil erosion indicators into one CSV report for analysis in Excel.</p>
+      <div class="controls">
+        <button id="downloadAllDistricts" type="button" style="padding:12px 16px;border:0;border-radius:7px;background:#17643e;color:white;font-weight:bold;cursor:pointer;">Download all districts report (CSV)</button>
+        <span id="allDistrictsDownloadStatus" class="muted" role="status">Available after the datasets load.</span>
+      </div>
+    </section>
+    <section class="card">
       <h2>District indicators to investigate</h2>
       <p class="muted">These observations are automatically calculated from the available NISR Season B 2025 district tables. They identify figures that may merit further local assessment; they are not rankings of overall district performance or proof of causes.</p>
       <div class="stat-grid">
@@ -361,6 +369,63 @@ function downloadInsightsComparison() {
   URL.revokeObjectURL(url);
 }
 
+function downloadAllDistrictsReport() {
+  if (!practices.length || !erosion.length) {
+    document.getElementById('allDistrictsDownloadStatus').textContent = 'The datasets are not ready yet.';
+    return;
+  }
+  const practiceByDistrict = new Map(practices.map(row => [row.district, row]));
+  const erosionByDistrict = new Map(erosion.map(row => [row.district, row]));
+  const names = [...new Set([...practiceByDistrict.keys(), ...erosionByDistrict.keys()])]
+    .filter(Boolean).sort((a, b) => a.localeCompare(b));
+  const columns = [
+    ['District', 'district'],
+    ['Land protected against erosion (%)', 'land_protected_against_erosion_pct'],
+    ['Mechanical equipment use (%)', 'mechanical_equipment_use_pct'],
+    ['Irrigation practice (%)', 'irrigation_practice_pct'],
+    ['Agroforestry practice (%)', 'agroforestry_practice_pct'],
+    ['Severe erosion plots (%)', 'severe_erosion_plots_pct'],
+    ['Moderate erosion plots (%)', 'moderate_erosion_plots_pct'],
+    ['Low erosion plots (%)', 'low_erosion_plots_pct'],
+    ['Very low erosion plots (%)', 'very_low_erosion_plots_pct']
+  ];
+  const csvCell = value => {
+    const safe = value === null || value === undefined || value === '' ? '' : String(value);
+    return '"' + safe.replace(/"/g, '""') + '"';
+  };
+  const rows = [
+    columns.map(column => column[0]),
+    ...names.map(name => {
+      const p = practiceByDistrict.get(name) || {};
+      const e = erosionByDistrict.get(name) || {};
+      return [
+        name,
+        pct(p.land_protected_against_erosion_pct),
+        pct(p.mechanical_equipment_use_pct),
+        pct(p.irrigation_practice_pct),
+        pct(p.agroforestry_practice_pct),
+        pct(e.severe_erosion_plots_pct),
+        pct(e.moderate_erosion_plots_pct),
+        pct(e.low_erosion_plots_pct),
+        pct(e.very_low_erosion_plots_pct)
+      ];
+    }),
+    [],
+    ['Source', 'NISR Seasonal Agricultural Survey 2025, Season B, Tables 29 and 33'],
+    ['Note', 'Blank cells indicate unavailable source values. Indicators are descriptive and do not establish cause and effect.']
+  ];
+  const csv = '\uFEFF' + rows.map(row => row.map(csvCell).join(',')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'agrismart_all_district_agricultural_indicators_2025.csv';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  document.getElementById('allDistrictsDownloadStatus').textContent = 'Report prepared for ' + names.length + ' districts.';
+}
 function renderComparison() {
   const nameA = document.getElementById('compareDistrictA').value;
   const nameB = document.getElementById('compareDistrictB').value;
@@ -450,6 +515,7 @@ async function init() {
     renderDistrict(names[0]);
     renderComparison();
     document.getElementById('downloadInsightsComparison').addEventListener('click', downloadInsightsComparison);
+    document.getElementById('downloadAllDistricts').addEventListener('click', downloadAllDistrictsReport);
   } catch (err) {
     document.getElementById('status').textContent = 'Could not load the datasets. Check that both CSV files are committed under data/processed/. Details: ' + err.message;
   }
