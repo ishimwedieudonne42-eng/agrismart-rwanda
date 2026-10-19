@@ -2011,5 +2011,63 @@
   })();
   </script>
 
+
+  <section class="card" id="cropYieldVariability" style="margin-top:1.5rem;">
+    <h2>Crop Yield Variability &amp; Consistency Analysis</h2>
+    <p>Compare how much reported yields vary between districts for each crop in the available 2025 Season B data. The coefficient of variation (CV) expresses standard deviation as a percentage of the mean; a lower CV indicates less relative variation across the observed districts, not necessarily better crop performance.</p>
+    <p id="cropVariabilityStatus" class="compare-note" role="status" aria-live="polite">Loading crop-yield records...</p>
+    <div class="ranking-grid">
+      <div class="ranking-card"><div class="ranking-label">Crops analysed</div><div class="ranking-value" id="cvCropCount">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Lowest CV</div><div class="ranking-value" id="cvLowest">—</div><div class="ranking-yield">Least relative variation</div></div>
+      <div class="ranking-card"><div class="ranking-label">Highest CV</div><div class="ranking-value" id="cvHighest">—</div><div class="ranking-yield">Most relative variation</div></div>
+    </div>
+    <h3>Compare variability across crops</h3>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>Crop</th><th>Districts with positive yields</th><th>Mean (kg/ha)</th><th>Standard deviation (kg/ha)</th><th>CV (%)</th><th>Minimum (kg/ha)</th><th>Maximum (kg/ha)</th><th>Yield range (kg/ha)</th></tr></thead>
+        <tbody id="cropVariabilityBody"><tr><td colspan="8">Loading...</td></tr></tbody>
+      </table>
+    </div>
+    <button id="downloadCropVariability" type="button" disabled style="padding:11px 14px;border:0;border-radius:7px;background:#17643e;color:white;font-weight:bold;cursor:pointer;margin-top:12px;">Download variability report (CSV)</button>
+    <p class="compare-note">Calculations use the population standard deviation of available positive district yields for each crop. Zero and missing yields are excluded and should be checked against source records. Differences in climate, soil, farming practices, and reporting can all affect variability; these statistics do not establish causes.</p>
+  </section>
+  <script>
+  (() => {
+    const status=document.getElementById("cropVariabilityStatus"),tbody=document.getElementById("cropVariabilityBody"),download=document.getElementById("downloadCropVariability");
+    const num=v=>{const s=String(v??"").trim(),n=Number(s);return s!==""&&Number.isFinite(n)?n:null;};
+    const fmt=v=>v==null?"Unavailable":v.toLocaleString(undefined,{maximumFractionDigits:2});
+    const csvCell=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"';
+    let report=[];
+    fetch("./data/processed/agrismart_district_crop_yield_2025.csv").then(r=>{if(!r.ok)throw new Error("Crop-yield dataset could not be loaded");return r.text();}).then(raw=>{
+      const parsed=Papa.parse(raw,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")});
+      const rows=(parsed.data||[]).filter(r=>r.district&&r.crop&&Number(r.year)===2025&&String(r.season||"").trim().toUpperCase()==="B").map(r=>({district:String(r.district).trim(),crop:String(r.crop).trim(),yield:num(r.yield_kg_per_ha),year:Number(r.year),season:String(r.season||"").trim().toUpperCase(),source:r.source||r.source_table||"NISR Seasonal Agricultural Survey 2025, Season B"}));
+      const grouped=new Map();
+      rows.forEach(r=>{if(!grouped.has(r.crop))grouped.set(r.crop,[]);if(r.yield!=null&&r.yield>0)grouped.get(r.crop).push(r);});
+      report=[...grouped.entries()].map(([crop,records])=>{
+        const values=records.map(r=>r.yield),n=values.length,mean=n?values.reduce((s,v)=>s+v,0)/n:null;
+        const variance=n?values.reduce((s,v)=>s+(v-mean)**2,0)/n:null,sd=variance==null?null:Math.sqrt(variance);
+        const min=n?Math.min(...values):null,max=n?Math.max(...values):null;
+        return {crop,districtCount:n,mean,standardDeviation:sd,coefficientOfVariation:mean>0&&sd!=null?100*sd/mean:null,min,max,range:min==null||max==null?null:max-min,year:2025,season:"B",source:records[0]?.source||"NISR Seasonal Agricultural Survey 2025, Season B"};
+      }).sort((a,b)=>(a.coefficientOfVariation??Infinity)-(b.coefficientOfVariation??Infinity)||a.crop.localeCompare(b.crop));
+      const valid=report.filter(r=>r.coefficientOfVariation!=null);
+      document.getElementById("cvCropCount").textContent=String(valid.length);
+      document.getElementById("cvLowest").textContent=valid.length?valid[0].crop+" ("+fmt(valid[0].coefficientOfVariation)+"%)":"Unavailable";
+      document.getElementById("cvHighest").textContent=valid.length?valid[valid.length-1].crop+" ("+fmt(valid[valid.length-1].coefficientOfVariation)+"%)":"Unavailable";
+      tbody.replaceChildren();
+      if(!report.length){const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=8;td.textContent="No crop records found.";tr.appendChild(td);tbody.appendChild(tr);}
+      report.forEach(r=>{const tr=document.createElement("tr");[r.crop,String(r.districtCount),fmt(r.mean),fmt(r.standardDeviation),fmt(r.coefficientOfVariation),fmt(r.min),fmt(r.max),fmt(r.range)].forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.appendChild(td);});tbody.appendChild(tr);});
+      status.textContent="Analysed "+rows.length+" district-crop records across "+report.length+" crops; each crop's statistics use its positive reported yields.";
+      download.disabled=!report.length;
+    }).catch(err=>{status.textContent="Unable to load crop variability: "+err.message;tbody.innerHTML='<tr><td colspan="8">Variability analysis unavailable. Refresh and try again.</td></tr>';});
+    download.addEventListener("click",()=>{
+      if(!report.length)return;
+      const headers=["Crop","Districts with positive yields","Mean yield (kg/ha)","Population standard deviation (kg/ha)","Coefficient of variation (%)","Minimum yield (kg/ha)","Maximum yield (kg/ha)","Yield range (kg/ha)","Year","Season","Source"];
+      const lines=[headers,...report.map(r=>[r.crop,r.districtCount,r.mean??"",r.standardDeviation??"",r.coefficientOfVariation??"",r.min??"",r.max??"",r.range??"",r.year,r.season,r.source])];
+      const blob=new Blob(["\uFEFF"+lines.map(row=>row.map(csvCell).join(",")).join("\r\n")],{type:"text/csv;charset=utf-8;"});
+      const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="agrismart_crop_yield_variability_report.csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    });
+  })();
+  </script>
+
 </body>
 </html>
