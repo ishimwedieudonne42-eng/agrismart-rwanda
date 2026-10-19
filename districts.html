@@ -1942,5 +1942,74 @@
   })();
   </script>
 
+
+  <section class="card" id="districtYieldDistribution" style="margin-top:1.5rem;">
+    <h2>District Crop Yield Distribution &amp; Benchmark Explorer</h2>
+    <p>Explore how reported yields for a selected crop are distributed across Rwanda's districts. Summary statistics use positive reported yields only and describe the available 2025 Season B records; they do not measure profitability or explain causes of differences.</p>
+    <div class="compare-controls">
+      <div class="compare-field"><label for="yieldDistributionCrop">Crop</label><select id="yieldDistributionCrop" disabled><option>Loading crops...</option></select></div>
+    </div>
+    <p id="yieldDistributionStatus" class="compare-note" role="status" aria-live="polite">Loading district crop-yield records...</p>
+    <div class="ranking-grid">
+      <div class="ranking-card"><div class="ranking-label">Districts with positive yields</div><div class="ranking-value" id="ydCount">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Minimum yield (kg/ha)</div><div class="ranking-value" id="ydMin">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Median yield (kg/ha)</div><div class="ranking-value" id="ydMedian">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Maximum yield (kg/ha)</div><div class="ranking-value" id="ydMax">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">25th percentile (Q1)</div><div class="ranking-value" id="ydQ1">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">75th percentile (Q3)</div><div class="ranking-value" id="ydQ3">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Interquartile range (IQR)</div><div class="ranking-value" id="ydIqr">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Mean yield (kg/ha)</div><div class="ranking-value" id="ydMean">—</div></div>
+    </div>
+    <h3>District yield ranking</h3>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>Rank</th><th>District</th><th>Reported yield (kg/ha)</th><th>Difference from median (kg/ha)</th><th>Benchmark</th></tr></thead>
+        <tbody id="yieldDistributionBody"><tr><td colspan="5">Loading...</td></tr></tbody>
+      </table>
+    </div>
+    <button id="downloadYieldDistribution" type="button" disabled style="padding:11px 14px;border:0;border-radius:7px;background:#17643e;color:white;font-weight:bold;cursor:pointer;margin-top:12px;">Download distribution report (CSV)</button>
+    <p class="compare-note">Percentiles use linear interpolation. Districts with zero or missing yields are not included in the statistical calculations and are listed as unavailable in the ranking. Differences from the median are descriptive benchmarks, not performance targets.</p>
+  </section>
+  <script>
+  (() => {
+    const select=document.getElementById("yieldDistributionCrop"), status=document.getElementById("yieldDistributionStatus");
+    const tbody=document.getElementById("yieldDistributionBody"), download=document.getElementById("downloadYieldDistribution");
+    const num=v=>{const s=String(v??"").trim(),n=Number(s);return s!==""&&Number.isFinite(n)?n:null;};
+    const fmt=v=>v==null?"Unavailable":v.toLocaleString(undefined,{maximumFractionDigits:2});
+    const csvCell=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"';
+    const percentile=(sorted,p)=>{if(!sorted.length)return null;const pos=(sorted.length-1)*p,lo=Math.floor(pos),hi=Math.ceil(pos);return sorted[lo]+(sorted[hi]-sorted[lo])*(pos-lo);};
+    let rows=[],report=[];
+    function render(){
+      const crop=select.value,all=rows.filter(r=>r.crop===crop),valid=all.filter(r=>r.yield!=null&&r.yield>0).sort((a,b)=>a.yield-b.yield);
+      const values=valid.map(r=>r.yield),q1=percentile(values,.25),med=percentile(values,.5),q3=percentile(values,.75),iqr=q1==null||q3==null?null:q3-q1;
+      const mean=values.length?values.reduce((s,v)=>s+v,0)/values.length:null;
+      const stats={count:values.length,min:values[0]??null,median:med,max:values[values.length-1]??null,q1,q3,iqr,mean};
+      [["ydCount",stats.count],["ydMin",stats.min],["ydMedian",stats.median],["ydMax",stats.max],["ydQ1",stats.q1],["ydQ3",stats.q3],["ydIqr",stats.iqr],["ydMean",stats.mean]].forEach(([id,v])=>document.getElementById(id).textContent=typeof v==="number"&&id==="ydCount"?String(v):fmt(v));
+      const validByDistrict=new Map(valid.map(r=>[r.district,r]));
+      report=all.map(r=>{const ok=r.yield!=null&&r.yield>0;return {district:r.district,crop,yield:ok?r.yield:null,differenceFromMedian:ok&&med!=null?r.yield-med:null,benchmark:!ok?"Unavailable":r.yield<med?"Below median":r.yield>med?"Above median":"At median",year:r.year,season:r.season,source:r.source};}).sort((a,b)=>(a.yield==null?1:b.yield==null?-1:b.yield-a.yield)||a.district.localeCompare(b.district));
+      tbody.replaceChildren();
+      if(!report.length){const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=5;td.textContent="No district records found for this crop.";tr.appendChild(td);tbody.appendChild(tr);}
+      report.forEach((r,i)=>{const tr=document.createElement("tr");[r.yield==null?"—":String(i+1),r.district,fmt(r.yield),fmt(r.differenceFromMedian),r.benchmark].forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.appendChild(td);});tbody.appendChild(tr);});
+      status.textContent="Showing "+all.length+" district records for "+crop+"; "+values.length+" positive yields are included in the summary statistics.";
+      download.disabled=!report.length;
+    }
+    select.addEventListener("change",render);
+    fetch("./data/processed/agrismart_district_crop_yield_2025.csv").then(r=>{if(!r.ok)throw new Error("Crop-yield dataset could not be loaded");return r.text();}).then(raw=>{
+      const parsed=Papa.parse(raw,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")});
+      rows=(parsed.data||[]).filter(r=>r.district&&r.crop&&Number(r.year)===2025&&String(r.season||"").trim().toUpperCase()==="B").map(r=>({district:String(r.district).trim(),crop:String(r.crop).trim(),yield:num(r.yield_kg_per_ha),year:Number(r.year),season:String(r.season||"").trim().toUpperCase(),source:r.source||r.source_table||"NISR Seasonal Agricultural Survey 2025, Season B"}));
+      const crops=[...new Set(rows.map(r=>r.crop))].sort((a,b)=>a.localeCompare(b));
+      select.replaceChildren();crops.forEach(c=>{const o=document.createElement("option");o.value=c;o.textContent=c;select.appendChild(o);});
+      select.disabled=!crops.length;if(!crops.length)throw new Error("No crop records were found.");render();
+    }).catch(err=>{status.textContent="Unable to load yield distribution: "+err.message;tbody.innerHTML='<tr><td colspan="5">Distribution report unavailable. Refresh and try again.</td></tr>';});
+    download.addEventListener("click",()=>{
+      if(!report.length)return;
+      const headers=["Rank","District","Crop","Reported yield (kg/ha)","Difference from median (kg/ha)","Benchmark","Year","Season","Source"];
+      const lines=[headers,...report.map((r,i)=>[r.yield==null?"":i+1,r.district,r.crop,r.yield??"",r.differenceFromMedian??"",r.benchmark,r.year,r.season,r.source])];
+      const blob=new Blob(["\uFEFF"+lines.map(row=>row.map(csvCell).join(",")).join("\r\n")],{type:"text/csv;charset=utf-8;"});
+      const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="agrismart_district_crop_yield_distribution.csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    });
+  })();
+  </script>
+
 </body>
 </html>
