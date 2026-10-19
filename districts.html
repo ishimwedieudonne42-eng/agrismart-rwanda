@@ -303,6 +303,25 @@
       </div>
     </section>
 
+    <section class="card" id="opportunityFinder">
+      <h2>District Crop Opportunity Finder</h2>
+      <p>Use the crop selector above to inspect all districts with positive reported yield for the selected crop. The median divides the valid district values into two halves; it is a comparison point, not a target or proof that a crop is suitable for planting.</p>
+      <div class="ranking-grid">
+        <div class="ranking-card"><div class="ranking-label">Median reported yield</div><div class="ranking-value" id="opportunityMedian">—</div><div class="ranking-yield">Across districts with positive values</div></div>
+        <div class="ranking-card"><div class="ranking-label">Above median</div><div class="ranking-value" id="opportunityAbove">—</div><div class="ranking-yield">Districts with valid positive yield</div></div>
+        <div class="ranking-card"><div class="ranking-label">At or below median</div><div class="ranking-value" id="opportunityAtBelow">—</div><div class="ranking-yield">Districts with valid positive yield</div></div>
+      </div>
+      <p id="opportunitySummary" role="status">Select a crop to view district comparison signals.</p>
+      <div class="ranking-table-wrap">
+        <table class="ranking-table">
+          <thead><tr><th>Rank</th><th>District</th><th>Reported yield (kg/ha)</th><th>Compared with median</th></tr></thead>
+          <tbody id="opportunityTableBody"><tr><td colspan="4">Select a crop to view district rankings.</td></tr></tbody>
+        </table>
+      </div>
+      <p style="margin-top:16px"><button id="downloadOpportunity" type="button" disabled style="padding:11px 14px;border:0;border-radius:7px;background:#17643e;color:white;font-weight:bold;cursor:pointer">Download opportunity ranking (CSV)</button></p>
+      <p class="notice">A higher yield is only one indicator. Before making crop-planning decisions, also check soil, rainfall, water access, costs, market demand, pests, and local farmer experience. The data shown here do not establish causes or profitability.</p>
+    </section>
+
     <section class="card">
       <h2>Compare two districts</h2>
       <p>Choose two districts to compare their reported yield for the selected crop. The crop selection above controls this comparison too.</p>
@@ -556,6 +575,54 @@
       document.getElementById("status").textContent = message;
     }
 
+    function renderOpportunityFinder() {
+      const selectedCrop = cropSelect.value;
+      const valid = districtData.filter(row => row.crop === selectedCrop && Number.isFinite(row.yield) && row.yield > 0)
+        .sort((a,b) => b.yield - a.yield);
+      const values = valid.map(row => row.yield).sort((a,b) => a-b);
+      const mid = values.length ? (values.length % 2 ? values[Math.floor(values.length/2)] : (values[values.length/2-1] + values[values.length/2]) / 2) : null;
+      const above = mid === null ? [] : valid.filter(row => row.yield > mid);
+      const atBelow = mid === null ? [] : valid.filter(row => row.yield <= mid);
+      const fmt = value => Number.isFinite(value) ? value.toLocaleString(undefined,{maximumFractionDigits:1})+' kg/ha' : 'Unavailable';
+      document.getElementById('opportunityMedian').textContent = fmt(mid);
+      document.getElementById('opportunityAbove').textContent = String(above.length);
+      document.getElementById('opportunityAtBelow').textContent = String(atBelow.length);
+      document.getElementById('opportunitySummary').textContent = valid.length
+        ? 'For '+selectedCrop+', '+valid.length+' districts have positive reported yields. '+above.length+' are above the median and '+atBelow.length+' are at or below it.'
+        : 'No positive reported yields are available for '+selectedCrop+'.';
+      const body = document.getElementById('opportunityTableBody');
+      if (!valid.length) {
+        body.innerHTML = '<tr><td colspan="4">No positive reported yields are available to rank.</td></tr>';
+      } else {
+        body.innerHTML = valid.map((row,index) => {
+          const name = row.district.replace(/[&<>"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[character]));
+          const comparison = row.yield > mid ? 'Above median' : row.yield < mid ? 'Below median' : 'At median';
+          return '<tr><td>'+(index+1)+'</td><td>'+name+'</td><td>'+fmt(row.yield)+'</td><td>'+comparison+'</td></tr>';
+        }).join('');
+      }
+      document.getElementById('downloadOpportunity').disabled = valid.length === 0;
+    }
+    function downloadOpportunityReport() {
+      const selectedCrop = cropSelect.value;
+      const valid = districtData.filter(row => row.crop === selectedCrop && Number.isFinite(row.yield) && row.yield > 0)
+        .sort((a,b) => b.yield - a.yield);
+      if (!valid.length) return;
+      const vals = valid.map(row => row.yield).sort((a,b)=>a-b);
+      const mid = vals.length % 2 ? vals[Math.floor(vals.length/2)] : (vals[vals.length/2-1]+vals[vals.length/2])/2;
+      const report = valid.map((row,index)=>({
+        Rank:index+1,District:row.district,Crop:selectedCrop,Year:2025,Season:'B',
+        'Reported yield (kg/ha)':row.yield,'District median yield (kg/ha)':mid,
+        'Comparison with median':row.yield>mid?'Above median':row.yield<mid?'Below median':'At median',
+        Source:'NISR Seasonal Agricultural Survey 2025, Season B, Table 11',
+        'Interpretation note':'Median comparison is descriptive; it does not prove crop suitability, profitability, or causes of yield differences.'
+      }));
+      const csv = String.fromCharCode(65279)+Papa.unparse(report,{quotes:true,delimiter:','});
+      const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob), link = document.createElement('a');
+      link.href=url; link.download='agrismart_'+selectedCrop.toLowerCase().replace(/[^a-z0-9]+/g,'_')+'_district_opportunity_ranking_2025_B.csv';
+      document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+    }
+
     function updateChart() {
       const selectedCrop = cropSelect.value;
 
@@ -738,12 +805,15 @@
         cropSelect.addEventListener("change", () => {
           updateChart();
           updateComparison();
+          renderOpportunityFinder();
         });
         districtASelect.addEventListener("change", updateComparison);
         districtBSelect.addEventListener("change", updateComparison);
         downloadComparisonButton.addEventListener("click", downloadDistrictComparison);
+        document.getElementById("downloadOpportunity").addEventListener("click", downloadOpportunityReport);
         updateChart();
         updateComparison();
+        renderOpportunityFinder();
       })
       .catch(error => {
         console.error(error);
