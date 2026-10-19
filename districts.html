@@ -1539,7 +1539,7 @@
       const metricEl = document.getElementById("districtMapMetric");
       const legendEl = document.getElementById("districtMapLegend");
       const detailEl = document.getElementById("districtMapDetail");
-      const boundaryUrl = "https://moegis.environment.gov.rw/server/rest/services/Hosted/Administrative_boundaries/FeatureServer/0/query?where=1%3D1&outFields=province%2Cdistrict%2Cdistrict_id&returnGeometry=true&outSR=4326&f=geojson";
+      const boundaryUrl = "https://www.gis.rbc.gov.rw/server/rest/services/Full_District_boundary_2022/MapServer/0/query?where=1%3D1&outFields=province%2Cdistrict%2Cdistrict_id&returnGeometry=true&outSR=4326&f=geojson";
       let features = [], yields = [], practices = [], erosion = [], layer = null, selectedLayer = null;
       const map = L.map("districtMap", { scrollWheelZoom: false }).setView([-1.95, 29.9], 8);
       L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
