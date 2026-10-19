@@ -2212,5 +2212,76 @@
   })();
   </script>
 
+
+  <section class="card" id="districtCropPortfolio" style="margin-top:1.5rem;">
+    <h2>District Crop Portfolio Explorer</h2>
+    <p>Explore the crops recorded for an individual district and compare their reported yields in the available 2025 Season B data. Yield values alone do not measure profitability, costs, food security, or crop suitability, so this tool describes the data rather than recommending what to plant.</p>
+    <div class="compare-controls">
+      <div class="compare-field"><label for="cropPortfolioDistrict">District</label><select id="cropPortfolioDistrict" disabled><option>Loading districts...</option></select></div>
+    </div>
+    <p id="cropPortfolioStatus" class="compare-note" role="status" aria-live="polite">Loading district crop-yield records...</p>
+    <div class="ranking-grid">
+      <div class="ranking-card"><div class="ranking-label">Crop records</div><div class="ranking-value" id="cpRecordCount">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Positive reported yields</div><div class="ranking-value" id="cpPositiveCount">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Zero yields</div><div class="ranking-value" id="cpZeroCount">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Missing/invalid yields</div><div class="ranking-value" id="cpInvalidCount">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Highest reported yield</div><div class="ranking-value" id="cpHighestYield">—</div><div class="ranking-yield" id="cpHighestCrop"></div></div>
+    </div>
+    <h3>Crop yield ranking within district</h3>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>Rank</th><th>Crop</th><th>Reported yield (kg/ha)</th><th>Status</th><th>Year</th><th>Season</th></tr></thead>
+        <tbody id="cropPortfolioBody"><tr><td colspan="6">Loading...</td></tr></tbody>
+      </table>
+    </div>
+    <button id="downloadCropPortfolio" type="button" disabled style="padding:11px 14px;border:0;border-radius:7px;background:#17643e;color:white;font-weight:bold;cursor:pointer;margin-top:12px;">Download district crop portfolio (CSV)</button>
+    <p class="compare-note">Positive yields are ranked from highest to lowest. Zero values are kept distinct from missing or invalid values; verify unusual records against the original survey before drawing conclusions.</p>
+  </section>
+  <script>
+  (() => {
+    const select=document.getElementById("cropPortfolioDistrict"),status=document.getElementById("cropPortfolioStatus");
+    const tbody=document.getElementById("cropPortfolioBody"),download=document.getElementById("downloadCropPortfolio");
+    const num=v=>{const s=String(v??"").trim(),n=Number(s);return s!==""&&Number.isFinite(n)?n:null;};
+    const fmt=v=>v==null?"Unavailable":v.toLocaleString(undefined,{maximumFractionDigits:2});
+    const csvCell=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"';
+    let rows=[],report=[];
+    function render(){
+      const district=select.value,all=rows.filter(r=>r.district===district);
+      report=all.map(r=>({...r,status:r.yield==null?"Missing/invalid":r.yield===0?"Reported zero yield":r.yield<0?"Negative yield":"Positive yield"}))
+        .sort((a,b)=>(a.yield==null?1:b.yield==null?-1:b.yield-a.yield)||a.crop.localeCompare(b.crop));
+      const positive=all.filter(r=>r.yield!=null&&r.yield>0);
+      const zeros=all.filter(r=>r.yield===0);
+      const invalid=all.filter(r=>r.yield==null||r.yield<0);
+      const highest=positive.sort((a,b)=>b.yield-a.yield||a.crop.localeCompare(b.crop))[0]||null;
+      document.getElementById("cpRecordCount").textContent=String(all.length);
+      document.getElementById("cpPositiveCount").textContent=String(positive.length);
+      document.getElementById("cpZeroCount").textContent=String(zeros.length);
+      document.getElementById("cpInvalidCount").textContent=String(invalid.length);
+      document.getElementById("cpHighestYield").textContent=highest?fmt(highest.yield):"Unavailable";
+      document.getElementById("cpHighestCrop").textContent=highest?highest.crop:"No positive yield recorded";
+      tbody.replaceChildren();
+      if(!report.length){const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=6;td.textContent="No crop records found for this district.";tr.appendChild(td);tbody.appendChild(tr);}
+      report.forEach((r,i)=>{const tr=document.createElement("tr");[r.yield==null||r.yield<=0?"—":String(positive.filter(p=>p.yield>r.yield).length+1),r.crop,fmt(r.yield),r.status,String(r.year),r.season].forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.appendChild(td);});tbody.appendChild(tr);});
+      status.textContent="Showing "+all.length+" crop records for "+district+"; rankings include positive numeric yields only.";
+      download.disabled=!report.length;
+    }
+    select.addEventListener("change",render);
+    fetch("./data/processed/agrismart_district_crop_yield_2025.csv").then(r=>{if(!r.ok)throw new Error("Crop-yield dataset could not be loaded");return r.text();}).then(raw=>{
+      const parsed=Papa.parse(raw,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")});
+      rows=(parsed.data||[]).filter(r=>r.district&&r.crop&&Number(r.year)===2025&&String(r.season||"").trim().toUpperCase()==="B").map(r=>({district:String(r.district).trim(),crop:String(r.crop).trim(),yield:num(r.yield_kg_per_ha),year:Number(r.year),season:String(r.season||"").trim().toUpperCase(),source:r.source||r.source_table||"NISR Seasonal Agricultural Survey 2025, Season B"}));
+      const districts=[...new Set(rows.map(r=>r.district))].sort((a,b)=>a.localeCompare(b));
+      select.replaceChildren();districts.forEach(d=>{const o=document.createElement("option");o.value=d;o.textContent=d;select.appendChild(o);});
+      select.disabled=!districts.length;if(!districts.length)throw new Error("No district records were found.");render();
+    }).catch(err=>{status.textContent="Unable to load district crop portfolio: "+err.message;tbody.innerHTML='<tr><td colspan="6">District crop portfolio unavailable. Refresh and try again.</td></tr>';});
+    download.addEventListener("click",()=>{
+      if(!report.length)return;
+      const headers=["Rank among positive yields","District","Crop","Reported yield (kg/ha)","Record status","Year","Season","Source"];
+      const lines=[headers,...report.map(r=>[r.yield==null||r.yield<=0?"":report.filter(p=>p.yield!=null&&p.yield>r.yield).length+1,r.district,r.crop,r.yield??"",r.status,r.year,r.season,r.source])];
+      const blob=new Blob(["\uFEFF"+lines.map(row=>row.map(csvCell).join(",")).join("\r\n")],{type:"text/csv;charset=utf-8;"});
+      const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="agrismart_district_crop_portfolio.csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    });
+  })();
+  </script>
+
 </body>
 </html>
