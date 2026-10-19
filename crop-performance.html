@@ -95,7 +95,7 @@ function downloadTrendReport(){
   const pct=(key)=>{const current=Number(r[key]),prior=Number(previous?.[key]);return previous&&Number.isFinite(current)&&Number.isFinite(prior)&&prior!==0?((current-prior)/Math.abs(prior))*100:'';};
   return {Crop:r.crop,Year:r.year,Season:r.season,'Cultivated area (ha)':r.cultivated_area_ha,'Harvested area (ha)':r.harvested_area_ha,'Production (tonnes)':r.production_mt,'Production change from previous year (%)':pct('production_mt'),'Yield (tonnes per hectare)':r.yield_mt_per_ha,'Yield change from previous year (%)':pct('yield_mt_per_ha'),'Source table':r.source_table,Source:r.source};
  });
- const csv='\\uFEFF'+Papa.unparse(report,{quotes:true,delimiter:','});
+ const csv=String.fromCharCode(65279)+Papa.unparse(report,{quotes:true,delimiter:','});
  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),link=document.createElement('a');
  link.href=url;link.download='agrismart_'+crop.toLowerCase().replace(/[^a-z0-9]+/g,'_')+'_trend.csv';
  document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
