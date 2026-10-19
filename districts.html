@@ -2514,6 +2514,92 @@
     });
   })();
   </script>
+  
+  <section class="card" id="districtCropYieldPeerComparison" style="margin-top:1.5rem;">
+    <h2>District Crop Yield Peer Comparison</h2>
+    <p>Compare two districts for the same crop and see how each reported yield sits among districts with positive yields in the 2025 Season B dataset. This is a descriptive peer comparison, not a causal explanation of performance.</p>
+    <div class="compare-controls">
+      <div class="compare-field"><label for="peerCompareCrop">Crop</label><select id="peerCompareCrop" disabled><option>Loading crops...</option></select></div>
+      <div class="compare-field"><label for="peerDistrictA">District A</label><select id="peerDistrictA" disabled><option>Loading districts...</option></select></div>
+      <div class="compare-field"><label for="peerDistrictB">District B</label><select id="peerDistrictB" disabled><option>Loading districts...</option></select></div>
+    </div>
+    <p id="peerCompareStatus" class="compare-note" role="status" aria-live="polite">Loading district crop-yield records...</p>
+    <div class="ranking-grid">
+      <div class="ranking-card"><div class="ranking-label" id="peerALabel">District A yield</div><div class="ranking-value" id="peerAYield">—</div><div class="ranking-yield" id="peerARank"></div></div>
+      <div class="ranking-card"><div class="ranking-label" id="peerBLabel">District B yield</div><div class="ranking-value" id="peerBYield">—</div><div class="ranking-yield" id="peerBRank"></div></div>
+      <div class="ranking-card"><div class="ranking-label">Yield difference (A − B)</div><div class="ranking-value" id="peerDifference">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Percentage difference vs B</div><div class="ranking-value" id="peerPercent">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Crop median yield (kg/ha)</div><div class="ranking-value" id="peerMedian">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Districts with positive yields</div><div class="ranking-value" id="peerCount">—</div></div>
+    </div>
+    <h3>Peer comparison details</h3>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>District</th><th>Reported yield (kg/ha)</th><th>Rank among positive-yield districts</th><th>Difference from crop median (kg/ha)</th><th>Status</th></tr></thead>
+        <tbody id="peerCompareBody"><tr><td colspan="5">Loading...</td></tr></tbody>
+      </table>
+    </div>
+    <button id="downloadPeerCompare" type="button" disabled style="padding:11px 14px;border:0;border-radius:7px;background:#17643e;color:white;font-weight:bold;cursor:pointer;margin-top:12px;">Download peer comparison (CSV)</button>
+    <p class="compare-note">Ranks include only districts with positive numeric yields for the selected crop. If a district has no matching record, its yield is unavailable. Percentage difference is unavailable when District B has no positive yield.</p>
+  </section>
+  <script>
+  (() => {
+    const cropSelect=document.getElementById("peerCompareCrop"),aSelect=document.getElementById("peerDistrictA"),bSelect=document.getElementById("peerDistrictB");
+    const status=document.getElementById("peerCompareStatus"),tbody=document.getElementById("peerCompareBody"),download=document.getElementById("downloadPeerCompare");
+    const num=v=>{const s=String(v??"").trim(),n=Number(s);return s!==""&&Number.isFinite(n)?n:null;};
+    const fmt=v=>v==null?"Unavailable":v.toLocaleString(undefined,{maximumFractionDigits:2});
+    const csvCell=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"';
+    const median=arr=>{if(!arr.length)return null;const s=arr.slice().sort((x,y)=>x-y),m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2;};
+    let rows=[],districts=[],crops=[],report=[];
+    function render(){
+      const crop=cropSelect.value,A=aSelect.value,B=bSelect.value;
+      const cropRows=rows.filter(r=>r.crop===crop);
+      const valid=cropRows.filter(r=>r.yield!=null&&r.yield>0).sort((x,y)=>y.yield-x.yield||x.district.localeCompare(y.district));
+      const ranks=new Map(valid.map((r,i)=>[r.district,i+1]));
+      const med=median(valid.map(r=>r.yield));
+      const get=d=>cropRows.find(r=>r.district===d)||null;
+      const ra=get(A),rb=get(B),ya=ra&&ra.yield!=null&&ra.yield>0?ra.yield:null,yb=rb&&rb.yield!=null&&rb.yield>0?rb.yield:null;
+      const diff=ya!=null&&yb!=null?ya-yb:null,pct=diff!=null&&yb>0?diff/yb*100:null;
+      document.getElementById("peerALabel").textContent=A+" yield (kg/ha)";
+      document.getElementById("peerBLabel").textContent=B+" yield (kg/ha)";
+      document.getElementById("peerAYield").textContent=fmt(ya);document.getElementById("peerBYield").textContent=fmt(yb);
+      document.getElementById("peerARank").textContent=ya==null?"Rank unavailable":"Rank "+ranks.get(A)+" of "+valid.length;
+      document.getElementById("peerBRank").textContent=yb==null?"Rank unavailable":"Rank "+ranks.get(B)+" of "+valid.length;
+      document.getElementById("peerDifference").textContent=fmt(diff);
+      document.getElementById("peerPercent").textContent=pct==null?"Unavailable":fmt(pct)+"%";
+      document.getElementById("peerMedian").textContent=fmt(med);
+      document.getElementById("peerCount").textContent=String(valid.length);
+      report=[{district:A,raw:ra,yield:ya,rank:ya==null?null:ranks.get(A)},{district:B,raw:rb,yield:yb,rank:yb==null?null:ranks.get(B)}].map(x=>({
+        district:x.district,crop,yield:x.yield,rank:x.rank,median:med,diffMedian:x.yield!=null&&med!=null?x.yield-med:null,
+        status:!x.raw?"No matching record":x.yield==null?(x.raw.yield===0?"Reported zero yield":"Missing or invalid yield"):(x.yield>=med?"At or above median":"Below median"),
+        year:2025,season:"B",source:x.raw?(x.raw.source||x.raw.source_table||"NISR Seasonal Agricultural Survey 2025, Season B"):"No matching record in processed dataset"
+      }));
+      tbody.replaceChildren();
+      report.forEach(x=>{const tr=document.createElement("tr");[x.district,fmt(x.yield),x.rank==null?"Unavailable":String(x.rank),fmt(x.diffMedian),x.status].forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.appendChild(td);});tbody.appendChild(tr);});
+      status.textContent="Comparing "+A+" and "+B+" for "+crop+". Positive-yield ranking and median use "+valid.length+" districts.";
+      download.disabled=!crop||!A||!B;
+    }
+    fetch("./data/processed/agrismart_district_crop_yield_2025.csv").then(r=>{if(!r.ok)throw new Error("Crop-yield dataset could not be loaded");return r.text();}).then(raw=>{
+      const parsed=Papa.parse(raw,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")});
+      rows=(parsed.data||[]).map(r=>({district:String(r.district??"").trim(),crop:String(r.crop??"").trim(),yield:num(r.yield_kg_per_ha),year:String(r.year??"").trim(),season:String(r.season??"").trim(),source:r.source||"",source_table:r.source_table||""}))
+        .filter(r=>r.district&&r.crop&&r.year==="2025"&&r.season.toUpperCase()==="B");
+      districts=[...new Set(rows.map(r=>r.district))].sort((a,b)=>a.localeCompare(b));
+      crops=[...new Set(rows.map(r=>r.crop))].sort((a,b)=>a.localeCompare(b));
+      const fill=(select,items,first)=>{select.replaceChildren();items.forEach((item,i)=>{const opt=document.createElement("option");opt.value=item;opt.textContent=item;if(first!=null&&i===first)opt.selected=true;select.appendChild(opt);});select.disabled=!items.length;};
+      fill(cropSelect,crops,0);fill(aSelect,districts,0);fill(bSelect,districts,Math.min(1,districts.length-1));
+      if(!rows.length){status.textContent="No matching 2025 Season B district-crop records were found.";return;}
+      render();
+    }).catch(err=>{status.textContent="Could not load crop-yield data: "+err.message;});
+    [cropSelect,aSelect,bSelect].forEach(el=>el.addEventListener("change",render));
+    download.addEventListener("click",()=>{
+      const columns=["district","crop","yield_kg_per_ha","rank_among_positive_yields","crop_median_kg_per_ha","difference_from_median_kg_per_ha","status","year","season","source"];
+      const lines=[columns.map(csvCell).join(",")];
+      report.forEach(r=>lines.push([r.district,r.crop,r.yield,r.rank,r.median,r.diffMedian,r.status,r.year,r.season,r.source].map(csvCell).join(",")));
+      const blob=new Blob(["\uFEFF"+lines.join("\r\n")],{type:"text/csv;charset=utf-8;"});
+      const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="agrismart_district_crop_yield_peer_comparison.csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    });
+  })();
+  </script>
 
 </body>
 </html>
