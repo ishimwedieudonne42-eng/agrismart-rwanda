@@ -360,6 +360,31 @@
       <p class="compare-note">Percentage difference is calculated relative to District B, when District B has a positive reported yield. Zero or missing values are shown as unavailable for comparison.</p>
     </section>
 
+
+    <section class="card" id="districtScorecard">
+      <h2>District Crop Performance Scorecard</h2>
+      <p>Select a district to review its reported crop yields, agricultural practices, and erosion indicators. Values are shown as reported; no combined performance score is calculated.</p>
+      <div class="compare-field">
+        <label for="scorecardDistrict">Choose a district</label>
+        <select id="scorecardDistrict" disabled><option>Loading districts...</option></select>
+      </div>
+      <p id="scorecardStatus" role="status">Loading district indicators...</p>
+      <div class="ranking-grid">
+        <div class="ranking-card"><div class="ranking-label">Crops with positive reported yield</div><div class="ranking-value" id="scorecardCropCount">—</div><div class="ranking-yield">Out of crop records available</div></div>
+        <div class="ranking-card"><div class="ranking-label">Land protected against erosion</div><div class="ranking-value" id="scorecardErosionProtection">—</div><div class="ranking-yield">Reported percentage</div></div>
+        <div class="ranking-card"><div class="ranking-label">Irrigation practice</div><div class="ranking-value" id="scorecardIrrigation">—</div><div class="ranking-yield">Reported percentage</div></div>
+        <div class="ranking-card"><div class="ranking-label">Mechanical equipment use</div><div class="ranking-value" id="scorecardMechanization">—</div><div class="ranking-yield">Reported percentage</div></div>
+        <div class="ranking-card"><div class="ranking-label">Agroforestry practice</div><div class="ranking-value" id="scorecardAgroforestry">—</div><div class="ranking-yield">Reported percentage</div></div>
+        <div class="ranking-card"><div class="ranking-label">Plots with severe erosion</div><div class="ranking-value" id="scorecardSevereErosion">—</div><div class="ranking-yield">Reported percentage</div></div>
+      </div>
+      <h3>Reported crop yields</h3>
+      <div class="ranking-table-wrap">
+        <table class="ranking-table"><thead><tr><th>Crop</th><th>Reported yield (kg/ha)</th><th>District median comparison</th></tr></thead><tbody id="scorecardYieldBody"><tr><td colspan="3">Waiting for data...</td></tr></tbody></table>
+      </div>
+      <p style="margin-top:16px"><button id="downloadScorecard" type="button" disabled style="padding:11px 14px;border:0;border-radius:7px;background:#17643e;color:white;font-weight:bold;cursor:pointer">Download district scorecard (CSV)</button></p>
+      <p class="notice">These indicators describe reported conditions and practices; they do not prove cause and effect, profitability, or overall district performance. Missing values remain unavailable and are not treated as zero.</p>
+    </section>
+
     <section class="card notice">
       <strong>How to interpret this chart</strong>
       <p>
@@ -819,6 +844,87 @@
         console.error(error);
         showError("Unable to load dataset: " + error.message);
       });
+  </script>
+
+
+  <script>
+    (() => {
+      const districtSelect = document.getElementById("scorecardDistrict");
+      const status = document.getElementById("scorecardStatus");
+      const button = document.getElementById("downloadScorecard");
+      let yieldRows = [], practiceRows = [], erosionRows = [];
+      const fmtPct = value => Number.isFinite(value) ? value.toLocaleString(undefined,{maximumFractionDigits:2}) + "%" : "Unavailable";
+      const fmtYield = value => Number.isFinite(value) && value > 0 ? value.toLocaleString(undefined,{maximumFractionDigits:1}) + " kg/ha" : "Unavailable";
+      const escapeHtml = value => String(value).replace(/[&<>"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
+      const getPct = (row, key) => row && row[key] !== "" && row[key] != null && Number.isFinite(Number(row[key])) ? Number(row[key]) : null;
+      function selectedData() {
+        const district = districtSelect.value;
+        return {
+          district,
+          practices: practiceRows.find(r => r.district === district) || null,
+          erosion: erosionRows.find(r => r.district === district) || null,
+          crops: yieldRows.filter(r => r.district === district)
+        };
+      }
+      function render() {
+        const d = selectedData();
+        const indicators = [
+          ["scorecardErosionProtection", d.practices, "land_protected_against_erosion_pct"],
+          ["scorecardIrrigation", d.practices, "irrigation_practice_pct"],
+          ["scorecardMechanization", d.practices, "mechanical_equipment_use_pct"],
+          ["scorecardAgroforestry", d.practices, "agroforestry_practice_pct"],
+          ["scorecardSevereErosion", d.erosion, "severe_erosion_plots_pct"]
+        ];
+        indicators.forEach(([id,row,key]) => document.getElementById(id).textContent = fmtPct(getPct(row,key)));
+        const valid = d.crops.filter(r => Number.isFinite(r.yield) && r.yield > 0);
+        document.getElementById("scorecardCropCount").textContent = valid.length + " / " + d.crops.length;
+        const tbody = document.getElementById("scorecardYieldBody");
+        if (!d.crops.length) tbody.innerHTML = '<tr><td colspan="3">No crop-yield records are available for this district.</td></tr>';
+        else {
+          const crops = [...new Set(d.crops.map(r => r.crop))].sort();
+          tbody.innerHTML = crops.map(crop => {
+            const row = d.crops.find(r => r.crop === crop);
+            const all = yieldRows.filter(r => r.crop === crop && Number.isFinite(r.yield) && r.yield > 0).map(r => r.yield).sort((a,b)=>a-b);
+            const median = all.length ? (all.length % 2 ? all[Math.floor(all.length/2)] : (all[all.length/2-1]+all[all.length/2])/2) : null;
+            const comparison = !(Number.isFinite(row?.yield) && row.yield > 0) || median === null ? "Unavailable" : row.yield > median ? "Above median" : row.yield < median ? "Below median" : "At median";
+            return '<tr><td>'+escapeHtml(crop)+'</td><td>'+fmtYield(row?.yield)+'</td><td>'+comparison+'</td></tr>';
+          }).join("");
+        }
+        status.textContent = d.district + ": showing available NISR SAS 2025 Season B crop yields and district agricultural indicators.";
+        button.disabled = !d.district;
+      }
+      function download() {
+        const d = selectedData();
+        if (!d.district) return;
+        const p = d.practices || {}, e = d.erosion || {};
+        const records = [
+          {District:d.district,Category:"Crop yield",Indicator:"Crop count with positive reported yield",Value:d.crops.filter(r=>Number.isFinite(r.yield)&&r.yield>0).length,Unit:"crops",Year:2025,Season:"B",Source:"NISR Seasonal Agricultural Survey 2025, Season B, Table 11"},
+          {District:d.district,Category:"Agricultural practices",Indicator:"Land protected against erosion",Value:getPct(p,"land_protected_against_erosion_pct"),Unit:"%",Year:2025,Season:"B",Source:"NISR district agricultural practices dataset"},
+          {District:d.district,Category:"Agricultural practices",Indicator:"Irrigation practice",Value:getPct(p,"irrigation_practice_pct"),Unit:"%",Year:2025,Season:"B",Source:"NISR district agricultural practices dataset"},
+          {District:d.district,Category:"Agricultural practices",Indicator:"Mechanical equipment use",Value:getPct(p,"mechanical_equipment_use_pct"),Unit:"%",Year:2025,Season:"B",Source:"NISR district agricultural practices dataset"},
+          {District:d.district,Category:"Agricultural practices",Indicator:"Agroforestry practice",Value:getPct(p,"agroforestry_practice_pct"),Unit:"%",Year:2025,Season:"B",Source:"NISR district agricultural practices dataset"},
+          {District:d.district,Category:"Erosion",Indicator:"Plots with severe erosion",Value:getPct(e,"severe_erosion_plots_pct"),Unit:"%",Year:2025,Season:"B",Source:"NISR district erosion dataset"},
+          ...d.crops.map(r=>({District:d.district,Category:"Crop yield",Indicator:r.crop+" reported yield",Value:Number.isFinite(r.yield)?r.yield:null,Unit:"kg/ha",Year:r.year,Season:r.season,Source:r.source||"NISR Seasonal Agricultural Survey 2025, Season B, Table 11"}))
+        ];
+        const csv = "\uFEFF" + Papa.unparse(records,{quotes:true,delimiter:","});
+        const url = URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8;"}));
+        const a = document.createElement("a"); a.href=url; a.download="agrismart_"+d.district.toLowerCase().replace(/[^a-z0-9]+/g,"_")+"_performance_scorecard_2025.csv";
+        document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      }
+      Promise.all([
+        fetch("./data/processed/agrismart_district_crop_yield_2025.csv").then(r=>{if(!r.ok)throw Error("Could not load crop-yield data.");return r.text();}).then(t=>Papa.parse(t,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")})),
+        fetch("./data/processed/agrismart_district_agricultural_practices_2025.csv").then(r=>{if(!r.ok)throw Error("Could not load agricultural-practices data.");return r.text();}).then(t=>Papa.parse(t,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")})),
+        fetch("./data/processed/agrismart_district_erosion_2025.csv").then(r=>{if(!r.ok)throw Error("Could not load erosion data.");return r.text();}).then(t=>Papa.parse(t,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")}))
+      ]).then(([y,p,e])=>{
+        yieldRows=(y.data||[]).filter(r=>Number(r.year)===2025&&String(r.season).trim().toUpperCase()==="B").map(r=>({...r,district:String(r.district||"").trim(),crop:String(r.crop||"").trim(),yield:r.yield_kg_per_ha!==""&&r.yield_kg_per_ha!=null?Number(r.yield_kg_per_ha):NaN})).filter(r=>r.district&&r.crop);
+        practiceRows=(p.data||[]).map(r=>({...r,district:String(r.district||"").trim()}));
+        erosionRows=(e.data||[]).map(r=>({...r,district:String(r.district||"").trim()}));
+        const districts=[...new Set([...yieldRows.map(r=>r.district),...practiceRows.map(r=>r.district),...erosionRows.map(r=>r.district)].filter(Boolean))].sort();
+        districtSelect.innerHTML="";
+        districts.forEach(name=>{const o=document.createElement("option");o.value=name;o.textContent=name;districtSelect.appendChild(o);});
+        districtSelect.disabled=false; districtSelect.addEventListener("change",render); button.addEventListener("click",download); render();
+      }).catch(err=>{status.textContent="Unable to load scorecard data: "+err.message;});
+    })();
   </script>
 
   <script>
