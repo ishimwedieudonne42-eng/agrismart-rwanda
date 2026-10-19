@@ -2283,5 +2283,71 @@
   })();
   </script>
 
+
+  <section class="card" id="districtCropCoverage" style="margin-top:1.5rem;">
+    <h2>District Crop Reporting Coverage</h2>
+    <p>Compare the breadth of crop records available for each district in the 2025 Season B dataset. This measures which crop records are present in this file, not the full number of crops grown in a district or the completeness of the original survey.</p>
+    <p id="cropCoverageStatus" class="compare-note" role="status" aria-live="polite">Loading district crop-yield records...</p>
+    <div class="ranking-grid">
+      <div class="ranking-card"><div class="ranking-label">Districts represented</div><div class="ranking-value" id="ccDistrictCount">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Distinct crops recorded</div><div class="ranking-value" id="ccCropCount">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Districts with most crop records</div><div class="ranking-value" id="ccHighest">—</div><div class="ranking-yield" id="ccHighestName"></div></div>
+      <div class="ranking-card"><div class="ranking-label">Districts with fewest crop records</div><div class="ranking-value" id="ccLowest">—</div><div class="ranking-yield" id="ccLowestName"></div></div>
+    </div>
+    <h3>Crop record coverage by district</h3>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>Rank</th><th>District</th><th>Distinct crops recorded</th><th>Positive-yield records</th><th>Zero-yield records</th><th>Missing/invalid yield records</th><th>Positive-yield share (%)</th></tr></thead>
+        <tbody id="cropCoverageBody"><tr><td colspan="7">Loading...</td></tr></tbody>
+      </table>
+    </div>
+    <button id="downloadCropCoverage" type="button" disabled style="padding:11px 14px;border:0;border-radius:7px;background:#17643e;color:white;font-weight:bold;cursor:pointer;margin-top:12px;">Download crop coverage report (CSV)</button>
+    <p class="compare-note">Coverage shares are calculated from records in this dataset. A zero yield is reported separately and is not counted as a missing value. Missing or invalid values should be checked against the original source before corrections are made.</p>
+  </section>
+  <script>
+  (() => {
+    const status=document.getElementById("cropCoverageStatus"),tbody=document.getElementById("cropCoverageBody"),download=document.getElementById("downloadCropCoverage");
+    const num=v=>{const s=String(v??"").trim(),n=Number(s);return s!==""&&Number.isFinite(n)?n:null;};
+    const fmt=v=>v==null?"Unavailable":v.toLocaleString(undefined,{maximumFractionDigits:2});
+    const csvCell=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"';
+    let rows=[],report=[];
+    function render(){
+      const districts=[...new Set(rows.map(r=>r.district))];
+      const totalCrops=new Set(rows.map(r=>r.crop)).size;
+      report=districts.map(d=>{
+        const all=rows.filter(r=>r.district===d),crops=new Set(all.map(r=>r.crop)).size;
+        const positive=all.filter(r=>r.yield!=null&&r.yield>0).length;
+        const zero=all.filter(r=>r.yield===0).length;
+        const invalid=all.filter(r=>r.yield==null||r.yield<0).length;
+        return {district:d,cropRecords:all.length,crops,positive,zero,invalid,positiveShare:all.length?positive/all.length*100:null,year:2025,season:"B"};
+      }).sort((a,b)=>b.crops-a.crops||b.positive-a.positive||a.district.localeCompare(b.district));
+      const high=report[0]||null,low=report.length?report[report.length-1]:null;
+      document.getElementById("ccDistrictCount").textContent=String(districts.length);
+      document.getElementById("ccCropCount").textContent=String(totalCrops);
+      document.getElementById("ccHighest").textContent=high?String(high.crops):"Unavailable";
+      document.getElementById("ccHighestName").textContent=high?high.district:"";
+      document.getElementById("ccLowest").textContent=low?String(low.crops):"Unavailable";
+      document.getElementById("ccLowestName").textContent=low?low.district:"";
+      tbody.replaceChildren();
+      if(!report.length){const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=7;td.textContent="No district records found.";tr.appendChild(td);tbody.appendChild(tr);}
+      report.forEach((r,i)=>{const tr=document.createElement("tr");[String(i+1),r.district,String(r.crops),String(r.positive),String(r.zero),String(r.invalid),r.positiveShare==null?"Unavailable":fmt(r.positiveShare)+"%"].forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.appendChild(td);});tbody.appendChild(tr);});
+      status.textContent="Coverage summary uses "+rows.length+" validly identified district-crop rows from 2025 Season B.";
+      download.disabled=!report.length;
+    }
+    fetch("./data/processed/agrismart_district_crop_yield_2025.csv").then(r=>{if(!r.ok)throw new Error("Crop-yield dataset could not be loaded");return r.text();}).then(raw=>{
+      const parsed=Papa.parse(raw,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")});
+      rows=(parsed.data||[]).filter(r=>r.district&&r.crop&&Number(r.year)===2025&&String(r.season||"").trim().toUpperCase()==="B").map(r=>({district:String(r.district).trim(),crop:String(r.crop).trim(),yield:num(r.yield_kg_per_ha)}));
+      if(!rows.length)throw new Error("No district crop records were found.");render();
+    }).catch(err=>{status.textContent="Unable to load crop coverage: "+err.message;tbody.innerHTML='<tr><td colspan="7">Crop coverage report unavailable. Refresh and try again.</td></tr>';});
+    download.addEventListener("click",()=>{
+      if(!report.length)return;
+      const headers=["Rank","District","Distinct crops recorded","Positive-yield records","Zero-yield records","Missing/invalid-yield records","Positive-yield share (%)","Year","Season"];
+      const lines=[headers,...report.map((r,i)=>[i+1,r.district,r.crops,r.positive,r.zero,r.invalid,r.positiveShare??"",r.year,r.season])];
+      const blob=new Blob(["\uFEFF"+lines.map(row=>row.map(csvCell).join(",")).join("\r\n")],{type:"text/csv;charset=utf-8;"});
+      const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="agrismart_district_crop_reporting_coverage.csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    });
+  })();
+  </script>
+
 </body>
 </html>
