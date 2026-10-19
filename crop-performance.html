@@ -34,7 +34,7 @@ main{max-width:1200px;margin:auto;padding:26px 18px 50px}.hero{padding:clamp(25p
 <section class="panel"><h3 class="section-title" style="margin-top:0">Selected crop comparison</h3><div class="chart-wrap"><canvas id="compareChart" aria-label="Selected crop comparison chart"></canvas></div></section></div>
 <h2 class="section-title">Comparison table</h2><section class="panel"><div class="table-wrap"><table><thead><tr><th>Indicator</th><th id="headingA">Crop A</th><th id="headingB">Crop B</th><th>Difference (A − B)</th></tr></thead><tbody id="comparisonRows"></tbody></table></div><p class="muted">Production is reported in tonnes; yield is tonnes per hectare; area is hectares. Values are from the prepared NISR Seasonal Agricultural Survey Season B dataset.</p></section>
 <h2 class="section-title">Crop performance trends</h2>
-<section class="panel"><div class="controls"><div class="field"><label for="trendCrop">Choose a crop to track over time</label><select id="trendCrop"></select></div><button id="trendDownload" type="button">Download selected crop trend CSV</button></div><div class="cards" id="trendSummary"><article class="card">Trend summary will appear when data loads.</article></div>
+<section class="panel"><div class="controls"><div class="field"><label for="trendCrop">Choose crop A</label><select id="trendCrop"></select></div><div class="field"><label for="trendCompareCrop">Compare with crop B</label><select id="trendCompareCrop"></select></div><button id="trendDownload" type="button">Download crop A trend CSV</button></div><div class="cards" id="trendSummary"><article class="card">Trend summary will appear when data loads.</article></div>
 <div class="charts" style="margin-top:16px"><section class="panel"><h3 class="section-title" style="margin-top:0">Production by year</h3><div class="chart-wrap"><canvas id="productionTrendChart" aria-label="Selected crop production trend"></canvas></div></section><section class="panel"><h3 class="section-title" style="margin-top:0">Yield by year</h3><div class="chart-wrap"><canvas id="yieldTrendChart" aria-label="Selected crop yield trend"></canvas></div></section></div>
 <p class="muted">Percentage change compares the earliest and latest years available for the selected crop. It describes change in reported figures, not the cause of that change.</p></section>
 <h2 class="section-title">Productivity insights</h2><div class="cards" id="insights"><div class="card">Insights will appear when data loads.</div></div>
@@ -70,21 +70,28 @@ function buildInsights(year){
 }
 
 function drawTrends(){
- const crop=el('trendCrop').value;
+ const crop=el('trendCrop').value,compareCrop=el('trendCompareCrop').value;
  if(!crop)return;
  const history=rows.filter(r=>r.crop===crop&&Number.isFinite(Number(r.year))).sort((a,b)=>Number(a.year)-Number(b.year));
- const years=history.map(r=>Number(r.year)),production=history.map(r=>Number(r.production_mt)),yieldValues=history.map(r=>Number(r.yield_mt_per_ha));
+ const compareHistory=rows.filter(r=>r.crop===compareCrop&&Number.isFinite(Number(r.year))).sort((a,b)=>Number(a.year)-Number(b.year));
+ const years=[...new Set([...history,...compareHistory].map(r=>Number(r.year)))].sort((a,b)=>a-b);
+ const atYear=(list,year,key)=>{const found=list.find(r=>Number(r.year)===year);const value=Number(found?.[key]);return found&&Number.isFinite(value)?value:null;};
  if(productionTrendChart)productionTrendChart.destroy();
- productionTrendChart=new Chart(el('productionTrendChart'),{type:'line',data:{labels:years,datasets:[{label:'Production (tonnes)',data:production,borderColor:'#2b7049',backgroundColor:'#2b704933',fill:true,tension:.25,spanGaps:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});
+ productionTrendChart=new Chart(el('productionTrendChart'),{type:'line',data:{labels:years,datasets:[
+ {label:crop+' production (tonnes)',data:years.map(y=>atYear(history,y,'production_mt')),borderColor:'#2b7049',backgroundColor:'#2b704922',tension:.25,spanGaps:false},
+ {label:compareCrop+' production (tonnes)',data:years.map(y=>atYear(compareHistory,y,'production_mt')),borderColor:'#c08b13',backgroundColor:'#d9a32322',tension:.25,spanGaps:false}
+ ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true}},scales:{y:{beginAtZero:true}}}});
  if(yieldTrendChart)yieldTrendChart.destroy();
- yieldTrendChart=new Chart(el('yieldTrendChart'),{type:'line',data:{labels:years,datasets:[{label:'Yield (tonnes/ha)',data:yieldValues,borderColor:'#c08b13',backgroundColor:'#d9a32333',fill:true,tension:.25,spanGaps:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});
+ yieldTrendChart=new Chart(el('yieldTrendChart'),{type:'line',data:{labels:years,datasets:[
+ {label:crop+' yield (tonnes/ha)',data:years.map(y=>atYear(history,y,'yield_mt_per_ha')),borderColor:'#2b7049',backgroundColor:'#2b704922',tension:.25,spanGaps:false},
+ {label:compareCrop+' yield (tonnes/ha)',data:years.map(y=>atYear(compareHistory,y,'yield_mt_per_ha')),borderColor:'#c08b13',backgroundColor:'#d9a32322',tension:.25,spanGaps:false}
+ ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true}},scales:{y:{beginAtZero:true}}}});
  const first=history[0],last=history[history.length-1];
  const change=(key)=>{const start=Number(first?.[key]),end=Number(last?.[key]);return Number.isFinite(start)&&Number.isFinite(end)&&start!==0?((end-start)/Math.abs(start))*100:null;};
  const p=change('production_mt'),y=change('yield_mt_per_ha');
- const describe=(label,v)=>v===null?label+': not available':label+': '+(v>0?'+':'')+fmt(v)+'%';
  let note='Not enough year records to calculate a trend.';
  if(history.length>=2){const pword=p>0?'increased':p<0?'decreased':'was unchanged';const yword=y>0?'increased':y<0?'decreased':'was unchanged';note=crop+' production '+pword+' by '+fmt(Math.abs(p??0))+'% and yield '+yword+' by '+fmt(Math.abs(y??0))+'% between '+first.year+' and '+last.year+'.';}
- el('trendSummary').innerHTML='<article class="card"><div class="muted">Crop selected</div><div class="metric" style="font-size:1.25rem">'+crop+'</div><div class="muted">'+history.length+' year records</div></article><article class="card"><div class="muted">Production change</div><div class="metric">'+(p===null?'—':(p>0?'+':'')+fmt(p)+'%')+'</div><div class="muted">'+(first?.year??'—')+' to '+(last?.year??'—')+'</div></article><article class="card"><div class="muted">Yield change</div><div class="metric">'+(y===null?'—':(y>0?'+':'')+fmt(y)+'%')+'</div><div class="muted">'+(first?.year??'—')+' to '+(last?.year??'—')+'</div></article><article class="card"><div class="muted">Trend summary</div><div>'+note+'</div></article>';
+ el('trendSummary').innerHTML='<article class="card"><div class="muted">Crop A</div><div class="metric" style="font-size:1.25rem">'+crop+'</div><div class="muted">'+history.length+' year records</div></article><article class="card"><div class="muted">Crop B</div><div class="metric" style="font-size:1.25rem">'+compareCrop+'</div><div class="muted">'+compareHistory.length+' year records</div></article><article class="card"><div class="muted">Crop A production change</div><div class="metric">'+(p===null?'—':(p>0?'+':'')+fmt(p)+'%')+'</div><div class="muted">'+(first?.year??'—')+' to '+(last?.year??'—')+'</div></article><article class="card"><div class="muted">Crop A yield change</div><div class="metric">'+(y===null?'—':(y>0?'+':'')+fmt(y)+'%')+'</div><div class="muted">'+(first?.year??'—')+' to '+(last?.year??'—')+'</div></article><article class="card"><div class="muted">Crop A trend summary</div><div>'+note+'</div></article>';
 }
 
 function downloadTrendReport(){
@@ -106,15 +113,15 @@ function downloadReport(){
  const csv='\uFEFF'+Papa.unparse(out,{quotes:true,delimiter:','});
  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='agrismart_crop_performance_'+year+'_season_B.csv';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
 }
-el('trendCrop').addEventListener('change',drawTrends);el('trendDownload').addEventListener('click',downloadTrendReport);el('metric').addEventListener('change',draw);el('year').addEventListener('change',draw);el('cropA').addEventListener('change',draw);el('cropB').addEventListener('change',draw);el('download').addEventListener('click',downloadReport);
+el('trendCrop').addEventListener('change',drawTrends);el('trendCompareCrop').addEventListener('change',drawTrends);el('trendDownload').addEventListener('click',downloadTrendReport);el('metric').addEventListener('change',draw);el('year').addEventListener('change',draw);el('cropA').addEventListener('change',draw);el('cropB').addEventListener('change',draw);el('download').addEventListener('click',downloadReport);
 Papa.parse(DATA_URL,{download:true,header:true,skipEmptyLines:true,dynamicTyping:true,complete:result=>{
  rows=result.data.filter(r=>r.crop&&Number.isFinite(Number(r.year))).map(r=>({...r,crop:String(r.crop).trim()}));
  if(!rows.length){el('status').textContent='No crop rows were found in the dataset. Check the CSV path and column names.';return;}
  const years=[...new Set(rows.map(r=>Number(r.year)))].sort((a,b)=>b-a),crops=[...new Set(rows.map(r=>r.crop))].sort((a,b)=>a.localeCompare(b));
  el('year').innerHTML=years.map(y=>'<option value="'+y+'">'+y+'</option>').join('');
  const options=crops.map(c=>'<option value="'+c.replace(/&/g,'&amp;').replace(/"/g,'&quot;')+'">'+c+'</option>').join('');
- el('cropA').innerHTML=options;el('cropB').innerHTML=options;el('trendCrop').innerHTML=options;
- el('cropA').value=crops.find(c=>c.toLowerCase()==='maize')||crops[0];el('cropB').value=crops.find(c=>c.toLowerCase()==='cassava')||crops[1]||crops[0];el('trendCrop').value=el('cropA').value;
+ el('cropA').innerHTML=options;el('cropB').innerHTML=options;el('trendCrop').innerHTML=options;el('trendCompareCrop').innerHTML=options;
+ el('cropA').value=crops.find(c=>c.toLowerCase()==='maize')||crops[0];el('cropB').value=crops.find(c=>c.toLowerCase()==='cassava')||crops[1]||crops[0];el('trendCrop').value=el('cropA').value;el('trendCompareCrop').value=el('cropB').value;
  const topYear=years[0],data=latestRows(topYear),prod=[...data].sort((a,b)=>b.production_mt-a.production_mt)[0],yieldTop=[...data].sort((a,b)=>b.yield_mt_per_ha-a.yield_mt_per_ha)[0];
  el('summary').innerHTML=[['Crops available',data.length,'in Season B '+topYear],['Highest production',prod?.crop||'—',fmt(prod?.production_mt)+' tonnes'],['Highest yield',yieldTop?.crop||'—',fmt(yieldTop?.yield_mt_per_ha)+' tonnes/ha'],['Years available',years.join(', '),'in the prepared dataset']].map(x=>'<article class="card"><div class="muted">'+x[0]+'</div><div class="metric">'+x[1]+'</div><div class="muted">'+x[2]+'</div></article>').join('');
  draw();
