@@ -251,6 +251,41 @@
   </header>
 
   <main>
+
+    <section class="card" id="districtPerformanceDashboard">
+      <h2>District Agricultural Performance Dashboard</h2>
+      <p>Explore the reported 2025 Season B crop yields and district agricultural indicators. Rankings are descriptive comparisons, not a combined score or a measure of profitability.</p>
+      <div class="compare-controls">
+        <div class="compare-field">
+          <label for="performanceMetric">Indicator or crop</label>
+          <select id="performanceMetric" disabled><option>Loading metrics...</option></select>
+        </div>
+        <div class="compare-field">
+          <label for="performanceOrder">Ranking order</label>
+          <select id="performanceOrder" disabled>
+            <option value="desc">Highest reported value first</option>
+            <option value="asc">Lowest reported value first</option>
+          </select>
+        </div>
+      </div>
+      <p id="performanceStatus" class="compare-note" role="status">Loading district performance data...</p>
+      <div class="ranking-grid">
+        <div class="ranking-card"><div class="ranking-label">Districts with a value</div><div class="ranking-value" id="performanceDistrictCount">—</div><div class="ranking-yield">For the selected metric</div></div>
+        <div class="ranking-card"><div class="ranking-label">Median reported value</div><div class="ranking-value" id="performanceMedian">—</div><div class="ranking-yield" id="performanceMedianUnit">Across available districts</div></div>
+        <div class="ranking-card"><div class="ranking-label">Top district</div><div class="ranking-value" id="performanceTopDistrict">—</div><div class="ranking-yield" id="performanceTopValue">Select a metric</div></div>
+      </div>
+      <div class="compare-chart-container" style="height:420px"><canvas id="districtPerformanceChart" aria-label="District agricultural performance ranking chart"></canvas></div>
+      <h3>District ranking</h3>
+      <div class="ranking-table-wrap">
+        <table class="ranking-table">
+          <thead><tr><th>Rank</th><th>District</th><th>Reported value</th><th>Compared with median</th></tr></thead>
+          <tbody id="performanceRankingBody"><tr><td colspan="4">Waiting for data...</td></tr></tbody>
+        </table>
+      </div>
+      <button id="downloadPerformanceRanking" type="button" disabled style="padding:11px 14px;border:0;border-radius:7px;background:#17643e;color:white;font-weight:bold;cursor:pointer;margin-top:14px">Download displayed ranking (CSV)</button>
+      <p class="compare-note">Crop yields are measured in kg/ha. Practice and erosion indicators are reported percentages. Zero and missing crop yields are excluded from yield rankings; zero values for percentage indicators remain valid reported values. A higher value is not automatically better for every indicator.</p>
+    </section>
+
     <section class="card">
       <h2>Compare crop yields by district</h2>
       <p>
@@ -1296,6 +1331,116 @@
         districts.forEach(name=>{const option=document.createElement("option");option.value=name;option.textContent=name;select.appendChild(option);});
         select.disabled=false;select.addEventListener("change",render);button.addEventListener("click",download);render();
       }).catch(error=>{status.textContent="Unable to prepare district report: "+error.message;summary.textContent="Report data could not be loaded. Refresh the page and check that the dataset files are published.";});
+    })();
+  </script>
+
+
+  <script>
+    (() => {
+      const metricSelect=document.getElementById("performanceMetric");
+      const orderSelect=document.getElementById("performanceOrder");
+      const status=document.getElementById("performanceStatus");
+      const countEl=document.getElementById("performanceDistrictCount");
+      const medianEl=document.getElementById("performanceMedian");
+      const medianUnitEl=document.getElementById("performanceMedianUnit");
+      const topDistrictEl=document.getElementById("performanceTopDistrict");
+      const topValueEl=document.getElementById("performanceTopValue");
+      const tbody=document.getElementById("performanceRankingBody");
+      const downloadButton=document.getElementById("downloadPerformanceRanking");
+      let cropRows=[],practiceRows=[],erosionRows=[],rankingRows=[],chart=null,metrics=[];
+      const practiceMetrics=[
+        {label:"Land protected against erosion",key:"land_protected_against_erosion_pct",type:"practice",unit:"%",source:"NISR district agricultural practices dataset, 2025"},
+        {label:"Mechanical equipment use",key:"mechanical_equipment_use_pct",type:"practice",unit:"%",source:"NISR district agricultural practices dataset, 2025"},
+        {label:"Irrigation practice",key:"irrigation_practice_pct",type:"practice",unit:"%",source:"NISR district agricultural practices dataset, 2025"},
+        {label:"Agroforestry practice",key:"agroforestry_practice_pct",type:"practice",unit:"%",source:"NISR district agricultural practices dataset, 2025"}
+      ];
+      const erosionMetrics=[
+        {label:"Plots with severe erosion",key:"severe_erosion_plots_pct",type:"erosion",unit:"%",source:"NISR district erosion dataset, 2025"},
+        {label:"Plots with moderate erosion",key:"moderate_erosion_plots_pct",type:"erosion",unit:"%",source:"NISR district erosion dataset, 2025"},
+        {label:"Plots with low erosion",key:"low_erosion_plots_pct",type:"erosion",unit:"%",source:"NISR district erosion dataset, 2025"},
+        {label:"Plots with very low erosion",key:"very_low_erosion_plots_pct",type:"erosion",unit:"%",source:"NISR district erosion dataset, 2025"}
+      ];
+      const loadCSV=path=>fetch(path).then(res=>{if(!res.ok)throw new Error("Could not load "+path);return res.text();}).then(text=>Papa.parse(text,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")}).data);
+      const valueOf=v=>v===null||v===undefined||String(v).trim()===""?null:(Number.isFinite(Number(v))?Number(v):null);
+      const median=values=>{const a=values.filter(v=>v!==null&&Number.isFinite(v)).sort((x,y)=>x-y);if(!a.length)return null;const m=Math.floor(a.length/2);return a.length%2?a[m]:(a[m-1]+a[m])/2;};
+      const format=(v,unit)=>v===null?"Unavailable":v.toLocaleString(undefined,{maximumFractionDigits:2})+(unit==="%"?"%":unit==="kg/ha"?" kg/ha":"")};
+      function getMetricRows(metric){
+        if(metric.type==="crop"){
+          const rows=cropRows.filter(r=>r.crop===metric.crop).map(r=>({district:r.district,value:r.value})).filter(r=>r.value!==null&&r.value>0);
+          return rows;
+        }
+        const source=metric.type==="practice"?practiceRows:erosionRows;
+        return source.map(r=>({district:r.district,value:valueOf(r[metric.key])})).filter(r=>r.district&&r.value!==null);
+      }
+      function render(){
+        const metric=metrics.find(m=>m.id===metricSelect.value);
+        if(!metric)return;
+        const rows=getMetricRows(metric).sort((a,b)=>orderSelect.value==="asc"?a.value-b.value:b.value-a.value||a.district.localeCompare(b.district));
+        const med=median(rows.map(r=>r.value));
+        rankingRows=rows.map((r,i)=>({...r,rank:i+1,metric:metric.label,unit:metric.unit,median:med,comparison:r.value>med?"Above median":r.value<med?"Below median":"At median",source:metric.source}));
+        countEl.textContent=String(rows.length);
+        medianEl.textContent=format(med,metric.unit);
+        medianUnitEl.textContent="Median "+metric.unit+" across available districts";
+        topDistrictEl.textContent=rows.length?rows[0].district:"Unavailable";
+        topValueEl.textContent=rows.length?format(rows[0].value,metric.unit):"No usable values";
+        tbody.innerHTML="";
+        if(!rows.length){
+          tbody.innerHTML='<tr><td colspan="4">No usable values are available for this metric.</td></tr>';
+        }else{
+          rankingRows.forEach(r=>{
+            const tr=document.createElement("tr");
+            [String(r.rank),r.district,format(r.value,r.unit),r.comparison].forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.appendChild(td);});
+            tbody.appendChild(tr);
+          });
+        }
+        if(chart){chart.destroy();chart=null;}
+        chart=new Chart(document.getElementById("districtPerformanceChart"),{
+          type:"bar",
+          data:{labels:rankingRows.slice(0,10).map(r=>r.district),datasets:[{label:metric.label+" ("+metric.unit+")",data:rankingRows.slice(0,10).map(r=>r.value),backgroundColor:"#39845a",borderRadius:4}]},
+          options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>format(ctx.parsed.x,metric.unit)}}},scales:{x:{beginAtZero:true,title:{display:true,text:metric.label+" ("+metric.unit+")"}},y:{ticks:{autoSkip:false}}}}
+        });
+        downloadButton.disabled=rankingRows.length===0;
+        status.textContent=metric.label+": "+rows.length+" districts have usable values. The chart shows the first "+Math.min(10,rows.length)+" districts in the selected ranking order; the table includes all available districts.";
+      }
+      function download(){
+        const data=rankingRows.map(r=>({Rank:r.rank,District:r.district,Metric:r.metric,Value:r.value,Unit:r.unit,"District median":r.median,Comparison:r.comparison,Source:r.source}));
+        const csv="\uFEFF"+Papa.unparse(data,{delimiter:",",newline:"\r\n"});
+        const blobUrl=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8;"}));
+        const link=document.createElement("a");link.href=blobUrl;link.download="agrismart_district_performance_"+metricSelect.value.toLowerCase().replace(/[^a-z0-9]+/g,"_")+".csv";document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(blobUrl);
+      }
+      Promise.all([
+        loadCSV("./data/processed/agrismart_district_crop_yield_2025.csv"),
+        loadCSV("./data/processed/agrismart_district_agricultural_practices_2025.csv"),
+        loadCSV("./data/processed/agrismart_district_erosion_2025.csv")
+      ]).then(([crops,practices,erosion])=>{
+        cropRows=crops.filter(r=>r.district&&r.crop&&Number(r.year)===2025&&String(r.season).trim().toUpperCase()==="B").map(r=>({district:String(r.district).trim(),crop:String(r.crop).trim(),value:valueOf(r.yield_kg_per_ha)}));
+        practiceRows=practices.filter(r=>r.district&&r.district.trim());
+        erosionRows=erosion.filter(r=>r.district&&r.district.trim());
+        const cropNames=[...new Set(cropRows.map(r=>r.crop))].sort();
+        metrics=[
+          ...cropNames.map(crop=>({id:"crop:"+crop,label:crop+" yield",crop,type:"crop",unit:"kg/ha",source:"NISR Seasonal Agricultural Survey 2025, Season B, Table 11"})),
+          ...practiceMetrics,
+          ...erosionMetrics
+        ];
+        metrics.forEach((m,i)=>{if(!m.id)m.id=m.type+":"+m.key;});
+        metricSelect.innerHTML="";
+        const groups=[
+          {label:"Crop yields (kg/ha)",items:metrics.filter(m=>m.type==="crop")},
+          {label:"Agricultural practices (%)",items:metrics.filter(m=>m.type==="practice")},
+          {label:"Erosion indicators (%)",items:metrics.filter(m=>m.type==="erosion")}
+        ];
+        groups.forEach(group=>{
+          const optgroup=document.createElement("optgroup");optgroup.label=group.label;
+          group.items.forEach(m=>{const option=document.createElement("option");option.value=m.id;option.textContent=m.label;optgroup.appendChild(option);});
+          metricSelect.appendChild(optgroup);
+        });
+        if(!metrics.length)throw new Error("No usable metrics were found.");
+        metricSelect.disabled=false;orderSelect.disabled=false;
+        metricSelect.addEventListener("change",render);orderSelect.addEventListener("change",render);downloadButton.addEventListener("click",download);render();
+      }).catch(error=>{
+        status.textContent="Unable to load the performance dashboard: "+error.message;
+        tbody.innerHTML='<tr><td colspan="4">Check that the published district data files are available, then refresh.</td></tr>';
+      });
     })();
   </script>
 
