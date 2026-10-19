@@ -386,6 +386,28 @@
     </section>
 
     <section class="card notice">
+
+    <section class="card" id="districtIndicatorComparison">
+      <h2>District-to-District Agricultural Comparison</h2>
+      <p>Compare reported agricultural practices and erosion indicators for two districts. Differences are shown in percentage points, not percent change.</p>
+      <div class="compare-controls">
+        <div class="compare-field"><label for="indicatorDistrictA">District A</label><select id="indicatorDistrictA" disabled><option>Loading districts...</option></select></div>
+        <div class="compare-field"><label for="indicatorDistrictB">District B</label><select id="indicatorDistrictB" disabled><option>Loading districts...</option></select></div>
+      </div>
+      <p id="indicatorCompareStatus" role="status" class="compare-note">Loading agricultural indicators...</p>
+      <div class="ranking-table-wrap">
+        <table class="ranking-table">
+          <thead><tr><th>Indicator</th><th id="indicatorHeaderA">District A</th><th id="indicatorHeaderB">District B</th><th>Difference (A − B)</th><th>Interpretation</th></tr></thead>
+          <tbody id="indicatorComparisonBody"><tr><td colspan="5">Waiting for data...</td></tr></tbody>
+        </table>
+      </div>
+      <h3>Indicator comparison chart</h3>
+      <div class="compare-chart-container"><canvas id="indicatorComparisonChart"></canvas></div>
+      <p class="compare-note">Higher land protection is generally favorable; higher severe or moderate erosion is a concern. Irrigation, equipment use, and agroforestry values describe reported practices and should not be interpreted as proof of productivity or profitability.</p>
+      <button id="downloadIndicatorComparison" type="button" disabled style="padding:11px 14px;border:0;border-radius:7px;background:#17643e;color:white;font-weight:bold;cursor:pointer;margin-top:8px">Download indicator comparison (CSV)</button>
+      <p class="compare-note">Source: NISR district agricultural practices and erosion datasets, 2025. Blank or missing values remain unavailable and are never converted to zero.</p>
+    </section>
+
       <strong>How to interpret this chart</strong>
       <p>
         Source: NISR Seasonal Agricultural Survey 2025, Season B,
@@ -924,6 +946,96 @@
         districts.forEach(name=>{const o=document.createElement("option");o.value=name;o.textContent=name;districtSelect.appendChild(o);});
         districtSelect.disabled=false; districtSelect.addEventListener("change",render); button.addEventListener("click",download); render();
       }).catch(err=>{status.textContent="Unable to load scorecard data: "+err.message;});
+    })();
+  </script>
+
+
+  <script>
+    (() => {
+      const selectA = document.getElementById("indicatorDistrictA");
+      const selectB = document.getElementById("indicatorDistrictB");
+      const status = document.getElementById("indicatorCompareStatus");
+      const body = document.getElementById("indicatorComparisonBody");
+      const button = document.getElementById("downloadIndicatorComparison");
+      const headerA = document.getElementById("indicatorHeaderA");
+      const headerB = document.getElementById("indicatorHeaderB");
+      let practices = [], erosion = [], chart = null, reportRows = [];
+      const metrics = [
+        {label:"Land protected against erosion",group:"practices",key:"land_protected_against_erosion_pct",better:"higher",meaning:"Higher is generally favorable"},
+        {label:"Irrigation practice",group:"practices",key:"irrigation_practice_pct",better:"neutral",meaning:"Reported practice; context matters"},
+        {label:"Mechanical equipment use",group:"practices",key:"mechanical_equipment_use_pct",better:"neutral",meaning:"Reported practice; context matters"},
+        {label:"Agroforestry practice",group:"practices",key:"agroforestry_practice_pct",better:"neutral",meaning:"Reported practice; context matters"},
+        {label:"Plots with severe erosion",group:"erosion",key:"severe_erosion_plots_pct",better:"lower",meaning:"Lower is generally favorable"},
+        {label:"Plots with moderate erosion",group:"erosion",key:"moderate_erosion_plots_pct",better:"lower",meaning:"Lower is generally favorable"},
+        {label:"Plots with low erosion",group:"erosion",key:"low_erosion_plots_pct",better:"neutral",meaning:"Reported erosion category"},
+        {label:"Plots with very low erosion",group:"erosion",key:"very_low_erosion_plots_pct",better:"neutral",meaning:"Reported erosion category"}
+      ];
+      const parseCSV = path => fetch(path).then(response => {
+        if (!response.ok) throw new Error("Could not load " + path);
+        return response.text();
+      }).then(text => Papa.parse(text,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,""),transform:v=>typeof v==="string"?v.trim():v}).data);
+      const num = value => value===null||value===undefined||String(value).trim()===""?null:(Number.isFinite(Number(value))?Number(value):null);
+      const fmt = value => value===null?"Unavailable":value.toLocaleString(undefined,{maximumFractionDigits:2})+"%";
+      const esc = value => String(value).replace(/[&<>"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
+      function metricValue(metric,district){
+        const rows=metric.group==="practices"?practices:erosion;
+        const row=rows.find(item=>item.district===district);
+        return num(row&&row[metric.key]);
+      }
+      function render(){
+        const a=selectA.value,b=selectB.value;
+        headerA.textContent=a||"District A"; headerB.textContent=b||"District B";
+        reportRows=metrics.map(metric=>{
+          const av=metricValue(metric,a),bv=metricValue(metric,b),diff=av===null||bv===null?null:av-bv;
+          let interpretation=metric.meaning;
+          if(diff!==null&&diff!==0&&metric.better!=="neutral"){
+            const favorable=metric.better==="higher"?diff>0:diff<0;
+            interpretation=favorable?a+" has the generally more favorable value":b+" has the generally more favorable value";
+          } else if(diff===0) interpretation="Same reported value";
+          return {indicator:metric.label,district_a:a,district_a_value:av,district_b:b,district_b_value:bv,difference_percentage_points:diff,interpretation,source:"NISR district agricultural practices and erosion datasets, 2025"};
+        });
+        body.innerHTML=reportRows.map(row=>{
+          const d=row.difference_percentage_points;
+          const diffText=d===null?"Unavailable":(d>0?"+":"")+d.toLocaleString(undefined,{maximumFractionDigits:2})+" pp";
+          return "<tr><td>"+esc(row.indicator)+"</td><td>"+esc(fmt(row.district_a_value))+"</td><td>"+esc(fmt(row.district_b_value))+"</td><td>"+esc(diffText)+"</td><td>"+esc(row.interpretation)+"</td></tr>";
+        }).join("");
+        if(chart)chart.destroy();
+        const visible=metrics.filter(m=>metricValue(m,a)!==null||metricValue(m,b)!==null);
+        chart=new Chart(document.getElementById("indicatorComparisonChart"),{
+          type:"bar",
+          data:{labels:visible.map(m=>m.label),datasets:[
+            {label:a,data:visible.map(m=>metricValue(m,a)),backgroundColor:"#23764b"},
+            {label:b,data:visible.map(m=>metricValue(m,b)),backgroundColor:"#e0a62e"}
+          ]},
+          options:{responsive:true,maintainAspectRatio:false,indexAxis:"y",scales:{x:{beginAtZero:true,title:{display:true,text:"Reported percentage (%)"}},y:{ticks:{autoSkip:false}}},plugins:{tooltip:{callbacks:{label:ctx=>ctx.dataset.label+": "+(ctx.raw===null||ctx.raw===undefined?"Unavailable":ctx.raw+"%")}}}}
+        });
+        button.disabled=!a||!b||!reportRows.length;
+        status.textContent=a===b?"Both selectors show the same district. Choose different districts for a more useful comparison.":"Showing "+metrics.length+" reported indicators for "+a+" and "+b+".";
+      }
+      function download(){
+        const rows=reportRows.map(r=>({Indicator:r.indicator,"District A":r.district_a,"District A value (%)":r.district_a_value===null?"":r.district_a_value,"District B":r.district_b,"District B value (%)":r.district_b_value===null?"":r.district_b_value,"Difference A minus B (percentage points)":r.difference_percentage_points===null?"":r.difference_percentage_points,Interpretation:r.interpretation,Source:r.source}));
+        const csv="\uFEFF"+Papa.unparse(rows,{delimiter:",",newline:"\r\n"});
+        const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8;"}));
+        const link=document.createElement("a");link.href=url;link.download="agrismart_district_indicator_comparison.csv";document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+      }
+      Promise.all([
+        parseCSV("./data/processed/agrismart_district_agricultural_practices_2025.csv"),
+        parseCSV("./data/processed/agrismart_district_erosion_2025.csv")
+      ]).then(([practiceRows,erosionRows])=>{
+        practices=practiceRows.filter(r=>r.district);erosion=erosionRows.filter(r=>r.district);
+        const districts=[...new Set([...practices.map(r=>r.district),...erosion.map(r=>r.district)])].sort();
+        if(!districts.length)throw new Error("No district records were found.");
+        [selectA,selectB].forEach(select=>{
+          select.innerHTML="";
+          districts.forEach(name=>{const option=document.createElement("option");option.value=name;option.textContent=name;select.appendChild(option);});
+          select.disabled=false;
+        });
+        if(districts.length>1)selectB.value=districts[1];
+        selectA.addEventListener("change",render);selectB.addEventListener("change",render);button.addEventListener("click",download);render();
+      }).catch(error=>{
+        status.textContent="Unable to load district comparison data: "+error.message;
+        body.innerHTML='<tr><td colspan="5">Data could not be loaded. Refresh the page or check that the dataset files are published.</td></tr>';
+      });
     })();
   </script>
 
