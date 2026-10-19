@@ -5,7 +5,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>District Explorer | AgriSmart Rwanda</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <style>
     * { box-sizing: border-box; }
@@ -237,6 +239,13 @@
     @media (min-width: 520px) and (max-width: 700px) {
       .ranking-grid, .compare-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
+    #districtMap { height: 520px; width: 100%; border-radius: 10px; border: 1px solid #d7e2d7; z-index: 1; }
+    .map-legend { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:12px 0; font-size:.9rem; }
+    .legend-swatch { display:inline-block; width:18px; height:12px; border:1px solid #7a8a7c; border-radius:3px; margin-right:5px; vertical-align:middle; }
+    .map-status { padding:10px 12px; border-radius:8px; background:#edf4ed; margin:10px 0; }
+    .map-detail { border:1px solid #d9e4d8; border-radius:10px; padding:15px; margin-top:14px; background:#f9fcf8; }
+    .map-detail h3 { margin-top:0; }
+    @media (max-width: 700px) { #districtMap { height: 420px; } }
     @media (prefers-reduced-motion: reduce) {
       .card, .ranking-card, .compare-card, button { transition: none !important; }
     }
@@ -251,6 +260,31 @@
   </header>
 
   <main>
+
+    <section class="card" id="districtDataMap">
+      <h2>Rwanda District Agricultural Data Map</h2>
+      <p>Explore the 30 districts and compare crop yields, agricultural practices, and erosion indicators. Select a district on the map to see its value.</p>
+      <div class="controls">
+        <label for="districtMapMetric">Map indicator
+          <select id="districtMapMetric">
+            <option value="crop:Maize">Maize yield (kg/ha)</option>
+            <option value="crop:Beans">Beans yield (kg/ha)</option>
+            <option value="crop:Banana for beer">Banana for beer yield (kg/ha)</option>
+            <option value="practice:irrigation_practice_pct">Irrigation practice (%)</option>
+            <option value="practice:mechanical_equipment_use_pct">Mechanical equipment use (%)</option>
+            <option value="practice:agroforestry_practice_pct">Agroforestry practice (%)</option>
+            <option value="practice:land_protected_against_erosion_pct">Land protected against erosion (%)</option>
+            <option value="erosion:severe_erosion_plots_pct">Plots with severe erosion (%)</option>
+            <option value="erosion:moderate_erosion_plots_pct">Plots with moderate erosion (%)</option>
+          </select>
+        </label>
+      </div>
+      <div id="districtMapStatus" class="map-status" role="status">Loading district boundaries and agricultural data…</div>
+      <div id="districtMapLegend" class="map-legend" aria-label="Map legend"></div>
+      <div id="districtMap" role="region" aria-label="Interactive Rwanda district agricultural map"></div>
+      <div id="districtMapDetail" class="map-detail" aria-live="polite"><h3>District details</h3><p>Select a district on the map to view its data.</p></div>
+      <p><small>Boundary source: Rwanda Ministry of Environment GIS, district boundaries based on village boundaries established during the 2022 census. Agricultural values come from the AgriSmart Rwanda project datasets. Areas without a reported value are shown in grey.</small></p>
+    </section>
 
     <section class="card" id="districtPerformanceDashboard">
       <h2>District Agricultural Performance Dashboard</h2>
@@ -1456,6 +1490,100 @@
           link.setAttribute("tabindex", "-1");
           link.addEventListener("click", event => event.preventDefault());
         }
+      });
+    })();
+  </script>
+
+
+  <script>
+    (() => {
+      const mapEl = document.getElementById("districtMap");
+      if (!mapEl || typeof L === "undefined") return;
+      const statusEl = document.getElementById("districtMapStatus");
+      const metricEl = document.getElementById("districtMapMetric");
+      const legendEl = document.getElementById("districtMapLegend");
+      const detailEl = document.getElementById("districtMapDetail");
+      const boundaryUrl = "https://moegis.environment.gov.rw/server/rest/services/Hosted/Administrative_boundaries/FeatureServer/0/query?where=1%3D1&outFields=province%2Cdistrict%2Cdistrict_id&returnGeometry=true&outSR=4326&f=geojson";
+      let features = [], yields = [], practices = [], erosion = [], layer = null, selectedLayer = null;
+      const map = L.map("districtMap", { scrollWheelZoom: false }).setView([-1.95, 29.9], 8);
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO', maxZoom: 18
+      }).addTo(map);
+      const normalize = s => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const getMetric = () => {
+        const [kind, key] = metricEl.value.split(":");
+        if (kind === "crop") return {kind, key, label:key + " yield (kg/ha)", unit:"kg/ha"};
+        const labels = {
+          irrigation_practice_pct:"Irrigation practice", mechanical_equipment_use_pct:"Mechanical equipment use",
+          agroforestry_practice_pct:"Agroforestry practice", land_protected_against_erosion_pct:"Land protected against erosion",
+          severe_erosion_plots_pct:"Plots with severe erosion", moderate_erosion_plots_pct:"Plots with moderate erosion"
+        };
+        return {kind,key,label:(labels[key] || key) + " (%)",unit:"%"};
+      };
+      const valueFor = (district, metric) => {
+        const name = normalize(district);
+        let row;
+        if (metric.kind === "crop") row = yields.find(r => normalize(r.district) === name && normalize(r.crop) === normalize(metric.key));
+        if (metric.kind === "practice") row = practices.find(r => normalize(r.district) === name);
+        if (metric.kind === "erosion") row = erosion.find(r => normalize(r.district) === name);
+        if (!row) return null;
+        const raw = metric.kind === "crop" ? row.yield_kg_per_ha : row[metric.key];
+        const n = raw === "" || raw == null ? NaN : Number(raw);
+        return Number.isFinite(n) && (metric.kind !== "crop" || n > 0) ? n : null;
+      };
+      const colorFor = (v, min, max) => {
+        if (v == null) return "#d9ded9";
+        if (max === min) return "#4b9562";
+        const t = (v-min)/(max-min);
+        return t < .2 ? "#eff7e9" : t < .4 ? "#cce7b7" : t < .6 ? "#91cc83" : t < .8 ? "#4fa765" : "#17633a";
+      };
+      const formatValue = (v, metric) => v == null ? "Unavailable" : v.toLocaleString(undefined,{maximumFractionDigits:2}) + " " + metric.unit;
+      function renderMap() {
+        if (!features.length) return;
+        const metric = getMetric();
+        const values = features.map(f => valueFor(f.properties.district || f.properties.District || f.properties.district_name, metric)).filter(v => v != null);
+        const min = values.length ? Math.min(...values) : 0, max = values.length ? Math.max(...values) : 0;
+        legendEl.innerHTML = "";
+        const legendTitle = document.createElement("strong"); legendTitle.textContent = metric.label + ":"; legendEl.appendChild(legendTitle);
+        [["#eff7e9","Lowest"],["#cce7b7","Low"],["#91cc83","Medium"],["#4fa765","High"],["#17633a","Highest"],["#d9ded9","No data"]].forEach(([color,label]) => {
+          const span = document.createElement("span"); span.innerHTML = '<i class="legend-swatch" style="background:'+color+'"></i>'+label; legendEl.appendChild(span);
+        });
+        if (layer) map.removeLayer(layer);
+        layer = L.geoJSON({type:"FeatureCollection",features}, {
+          style: feature => ({fillColor:colorFor(valueFor(feature.properties.district || feature.properties.District || feature.properties.district_name,metric),min,max),weight:1.4,color:"#fff",opacity:1,fillOpacity:.85}),
+          onEachFeature:(feature,lyr) => {
+            const name = feature.properties.district || feature.properties.District || feature.properties.district_name || "Unknown district";
+            const val = valueFor(name,metric);
+            lyr.bindTooltip(name + ": " + formatValue(val,metric));
+            lyr.on("mouseover",e=>e.target.setStyle({weight:3,color:"#173f29",fillOpacity:1}));
+            lyr.on("mouseout",e=>layer.resetStyle(e.target));
+            lyr.on("click",()=>{
+              if(selectedLayer && layer) layer.resetStyle(selectedLayer);
+              selectedLayer=lyr; lyr.setStyle({weight:3,color:"#123d28",fillOpacity:1});
+              detailEl.innerHTML="";
+              const h=document.createElement("h3");h.textContent=name;detailEl.appendChild(h);
+              const p=document.createElement("p");p.textContent=metric.label+": "+formatValue(val,metric);detailEl.appendChild(p);
+              const note=document.createElement("p");note.textContent=val==null?"No reported value is available for this district and indicator.":"Value is from the AgriSmart Rwanda district dataset.";detailEl.appendChild(note);
+            });
+          }
+        }).addTo(map);
+        try { map.fitBounds(layer.getBounds(),{padding:[12,12]}); } catch(e) {}
+        statusEl.textContent = "Map loaded. " + features.length + " district boundary features; " + values.length + " have a value for the selected indicator.";
+      }
+      metricEl.addEventListener("change",renderMap);
+      Promise.all([
+        fetch(boundaryUrl).then(r=>{if(!r.ok)throw Error("District boundary service returned HTTP "+r.status);return r.json();}),
+        fetch("./data/processed/agrismart_district_crop_yield_2025.csv").then(r=>{if(!r.ok)throw Error("Crop-yield CSV could not be loaded");return r.text();}).then(t=>Papa.parse(t,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")})),
+        fetch("./data/processed/agrismart_district_agricultural_practices_2025.csv").then(r=>{if(!r.ok)throw Error("Agricultural-practices CSV could not be loaded");return r.text();}).then(t=>Papa.parse(t,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")})),
+        fetch("./data/processed/agrismart_district_erosion_2025.csv").then(r=>{if(!r.ok)throw Error("Erosion CSV could not be loaded");return r.text();}).then(t=>Papa.parse(t,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")}))
+      ]).then(([geo,y,p,e])=>{
+        features=geo.features||[];
+        yields=(y.data||[]).filter(r=>Number(r.year)===2025&&String(r.season||"").trim().toUpperCase()==="B");
+        practices=p.data||[]; erosion=e.data||[];
+        if(!features.length)throw Error("No district boundary features were returned.");
+        renderMap();
+      }).catch(err=>{
+        statusEl.textContent="The district map could not load: "+err.message+". Please refresh and check your internet connection; the other District Explorer tools remain available.";
       });
     })();
   </script>
