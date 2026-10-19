@@ -104,6 +104,10 @@
       <div id="priorityList" class="priority-grid" aria-live="polite">
         <p>Recommendations will appear after the datasets load.</p>
       </div>
+      <div style="margin-top:18px;display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+        <button id="downloadReport" type="button" disabled>Download recommendation report (CSV)</button>
+        <span class="muted" id="downloadHelp">The report becomes available after the datasets load.</span>
+      </div>
     </section>
 
     <section class="card">
@@ -240,7 +244,40 @@
           'Review the figures and original source tables with local agricultural experts. A lack of flags does not mean that there are no agricultural challenges.');
       }
       $('status').textContent = 'Loaded ' + practices.length + ' practice records, ' + erosion.length + ' erosion records, and ' + yields.length + ' crop-yield records. Showing comparisons for ' + district + ' and ' + crop + '.';
+      $('downloadReport').disabled = false;
+      $('downloadHelp').textContent = 'Report ready for ' + district + ' · ' + crop + '.';
     }
+    function downloadReport() {
+      const district = $('districtSelect').value, crop = $('cropSelect').value;
+      if (!district || !crop) return;
+      const rows = [
+        ['Report item','Value'],
+        ['District',district],
+        ['Selected crop',crop],
+        ['Land protected against erosion', $('protectedValue').textContent],
+        ['Land protection comparison', $('protectedCompare').textContent],
+        ['Irrigation practice', $('irrigationValue').textContent],
+        ['Irrigation comparison', $('irrigationCompare').textContent],
+        ['Plots with severe erosion', $('erosionValue').textContent],
+        ['Severe erosion comparison', $('erosionCompare').textContent],
+        ['Selected crop yield', $('yieldValue').textContent],
+        ['Crop yield comparison', $('yieldCompare').textContent],
+        ['Generated priorities','']
+      ];
+      [...$('priorityList').querySelectorAll('.priority')].forEach((card, index) => {
+        rows.push(['Priority ' + (index + 1), card.innerText.replace(/\n+/g, ' | ')]);
+      });
+      rows.push(['Data source','NISR Seasonal Agricultural Survey 2025; prepared Tables 11, 29, and 33']);
+      rows.push(['Interpretation note','Median comparisons identify topics to investigate; they do not establish causes or prescribe interventions.']);
+      const csv = '\uFEFF' + rows.map(row => row.map(value => '"' + String(value ?? '').replace(/"/g, '""') + '"').join(',')).join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'agrismart_recommendations_' + district.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '_' + crop.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.csv';
+      document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+    }
+    $('downloadReport').addEventListener('click', downloadReport);
     async function init() {
       try {
         [practices, erosion, yields] = await Promise.all([
