@@ -34,7 +34,7 @@ main{max-width:1200px;margin:auto;padding:26px 18px 50px}.hero{padding:clamp(25p
 <section class="panel"><h3 class="section-title" style="margin-top:0">Selected crop comparison</h3><div class="chart-wrap"><canvas id="compareChart" aria-label="Selected crop comparison chart"></canvas></div></section></div>
 <h2 class="section-title">Comparison table</h2><section class="panel"><div class="table-wrap"><table><thead><tr><th>Indicator</th><th id="headingA">Crop A</th><th id="headingB">Crop B</th><th>Difference (A − B)</th></tr></thead><tbody id="comparisonRows"></tbody></table></div><p class="muted">Production is reported in tonnes; yield is tonnes per hectare; area is hectares. Values are from the prepared NISR Seasonal Agricultural Survey Season B dataset.</p></section>
 <h2 class="section-title">Crop performance trends</h2>
-<section class="panel"><div class="controls"><div class="field"><label for="trendCrop">Choose a crop to track over time</label><select id="trendCrop"></select></div></div><div class="cards" id="trendSummary"><article class="card">Trend summary will appear when data loads.</article></div>
+<section class="panel"><div class="controls"><div class="field"><label for="trendCrop">Choose a crop to track over time</label><select id="trendCrop"></select></div><button id="trendDownload" type="button">Download selected crop trend CSV</button></div><div class="cards" id="trendSummary"><article class="card">Trend summary will appear when data loads.</article></div>
 <div class="charts" style="margin-top:16px"><section class="panel"><h3 class="section-title" style="margin-top:0">Production by year</h3><div class="chart-wrap"><canvas id="productionTrendChart" aria-label="Selected crop production trend"></canvas></div></section><section class="panel"><h3 class="section-title" style="margin-top:0">Yield by year</h3><div class="chart-wrap"><canvas id="yieldTrendChart" aria-label="Selected crop yield trend"></canvas></div></section></div>
 <p class="muted">Percentage change compares the earliest and latest years available for the selected crop. It describes change in reported figures, not the cause of that change.</p></section>
 <h2 class="section-title">Productivity insights</h2><div class="cards" id="insights"><div class="card">Insights will appear when data loads.</div></div>
@@ -87,13 +87,26 @@ function drawTrends(){
  el('trendSummary').innerHTML='<article class="card"><div class="muted">Crop selected</div><div class="metric" style="font-size:1.25rem">'+crop+'</div><div class="muted">'+history.length+' year records</div></article><article class="card"><div class="muted">Production change</div><div class="metric">'+(p===null?'—':(p>0?'+':'')+fmt(p)+'%')+'</div><div class="muted">'+(first?.year??'—')+' to '+(last?.year??'—')+'</div></article><article class="card"><div class="muted">Yield change</div><div class="metric">'+(y===null?'—':(y>0?'+':'')+fmt(y)+'%')+'</div><div class="muted">'+(first?.year??'—')+' to '+(last?.year??'—')+'</div></article><article class="card"><div class="muted">Trend summary</div><div>'+note+'</div></article>';
 }
 
+function downloadTrendReport(){
+ const crop=el('trendCrop').value;
+ const history=rows.filter(r=>r.crop===crop&&Number.isFinite(Number(r.year))).sort((a,b)=>Number(a.year)-Number(b.year));
+ const report=history.map((r,i)=>{
+  const previous=history[i-1];
+  const pct=(key)=>{const current=Number(r[key]),prior=Number(previous?.[key]);return previous&&Number.isFinite(current)&&Number.isFinite(prior)&&prior!==0?((current-prior)/Math.abs(prior))*100:'';};
+  return {Crop:r.crop,Year:r.year,Season:r.season,'Cultivated area (ha)':r.cultivated_area_ha,'Harvested area (ha)':r.harvested_area_ha,'Production (tonnes)':r.production_mt,'Production change from previous year (%)':pct('production_mt'),'Yield (tonnes per hectare)':r.yield_mt_per_ha,'Yield change from previous year (%)':pct('yield_mt_per_ha'),'Source table':r.source_table,Source:r.source};
+ });
+ const csv='\\uFEFF'+Papa.unparse(report,{quotes:true,delimiter:','});
+ const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+ link.href=url;link.download='agrismart_'+crop.toLowerCase().replace(/[^a-z0-9]+/g,'_')+'_trend.csv';
+ document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+}
 function downloadReport(){
  const year=Number(el('year').value),a=el('cropA').value,b=el('cropB').value;
  const out=latestRows(year).map(r=>({Crop:r.crop,Year:r.year,Season:r.season,'Cultivated area (ha)':r.cultivated_area_ha,'Harvested area (ha)':r.harvested_area_ha,'Production (tonnes)':r.production_mt,'Yield (tonnes per hectare)':r.yield_mt_per_ha,'Source table':r.source_table,Source:r.source,'Comparison selection':r.crop===a?'Crop A':r.crop===b?'Crop B':''}));
  const csv='\uFEFF'+Papa.unparse(out,{quotes:true,delimiter:','});
  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='agrismart_crop_performance_'+year+'_season_B.csv';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
 }
-el('trendCrop').addEventListener('change',drawTrends);el('metric').addEventListener('change',draw);el('year').addEventListener('change',draw);el('cropA').addEventListener('change',draw);el('cropB').addEventListener('change',draw);el('download').addEventListener('click',downloadReport);
+el('trendCrop').addEventListener('change',drawTrends);el('trendDownload').addEventListener('click',downloadTrendReport);el('metric').addEventListener('change',draw);el('year').addEventListener('change',draw);el('cropA').addEventListener('change',draw);el('cropB').addEventListener('change',draw);el('download').addEventListener('click',downloadReport);
 Papa.parse(DATA_URL,{download:true,header:true,skipEmptyLines:true,dynamicTyping:true,complete:result=>{
  rows=result.data.filter(r=>r.crop&&Number.isFinite(Number(r.year))).map(r=>({...r,crop:String(r.crop).trim()}));
  if(!rows.length){el('status').textContent='No crop rows were found in the dataset. Check the CSV path and column names.';return;}
