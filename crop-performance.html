@@ -14,11 +14,30 @@ header{position:sticky;top:0;z-index:5;background:#ffffffed;backdrop-filter:blur
 main{max-width:1200px;margin:auto;padding:26px 18px 50px}.hero{padding:clamp(25px,5vw,48px);border-radius:20px;background:linear-gradient(100deg,#082b1beF,#174d32c9),url('https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1800&q=80') center/cover;color:white;box-shadow:0 15px 32px #174d321c;animation:appear .6s ease}.eyebrow{text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:#b7f0c6;font-size:.8rem}h1{font-size:clamp(2rem,5vw,3.2rem);line-height:1.12;margin:10px 0 12px}.hero p{max-width:760px;margin-bottom:0}.section-title{color:var(--green);margin:28px 0 12px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}.card,.panel{background:white;border:1px solid #e0e9e1;border-radius:15px;padding:19px;box-shadow:0 4px 16px #183c2008;min-width:0}.card{transition:transform .2s,box-shadow .2s}.card:hover{transform:translateY(-3px);box-shadow:0 10px 24px #174d3215}.metric{font-size:1.65rem;font-weight:800;color:var(--green);line-height:1.3}.muted{color:var(--muted);font-size:.9rem}.controls{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-bottom:16px}.field{display:flex;flex-direction:column;gap:5px;min-width:170px;flex:1}.field label{font-weight:700;font-size:.9rem}select,button{font:inherit;padding:10px 12px;border-radius:9px;border:1px solid #cbd9ce;background:white;color:var(--ink)}button{background:var(--green2);border-color:var(--green2);color:white;font-weight:700;cursor:pointer}button:hover{background:var(--green)}button:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #e3ad32;outline-offset:3px}.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));gap:16px}.chart-wrap{height:320px;position:relative}.table-wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:.92rem}th,td{text-align:left;padding:10px;border-bottom:1px solid #e5ece6;white-space:nowrap}th{background:#edf5ee;color:var(--green)}.positive{color:#237344;font-weight:700}.negative{color:#a23a2d;font-weight:700}.notice{margin-top:18px;background:#fff8df;border-left:4px solid #d9a323;padding:13px 16px;border-radius:5px}.status{margin:12px 0;color:var(--muted)}footer{text-align:center;padding:22px;color:var(--muted);font-size:.9rem}
 @keyframes appear{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}@media(max-width:650px){.header-inner{align-items:flex-start}.nav{width:100%}.nav a{font-size:.82rem;padding:7px 9px}.chart-wrap{height:270px}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 </style>
+  <link rel="stylesheet" href="./site-theme.css">
 </head>
 <body>
-<header><div class="header-inner"><div><div class="brand">AgriSmart Rwanda</div><div class="muted">Agricultural intelligence from published statistics</div></div><nav class="nav" aria-label="Main navigation">
-<a href="./index.html">Home</a><a href="./national-dashboard.html">National dashboard</a><a href="./districts.html">Districts</a><a href="./insights.html">Insights</a><a href="./recommendations.html">Recommendations</a><a href="./season-comparison.html">Season comparison</a><a href="./data-quality.html">Data quality</a><a href="./district-map.html">District map</a>
-</nav></div></header>
+<header>
+    <div class="agri-header-inner">
+      <div class="agri-brand-block">
+        <div class="agri-brand">🌱 AgriSmart Rwanda</div>
+        <div class="agri-subtitle">Crop production, yield and area analysis</div>
+      </div>
+      <nav class="agri-nav" aria-label="Main navigation">
+        <a href="./index.html">Home</a>
+        <a href="./national-dashboard.html">National dashboard</a>
+        <a href="./districts.html">Districts</a>
+        <a href="./insights.html">Insights</a>
+        <a href="./recommendations.html">Recommendations</a>
+        <a href="./season-comparison.html">Season comparison</a>
+        <a href="./crop-performance.html" aria-current="page">Crop performance</a>
+        <a href="./data-quality.html">Data quality</a>
+        <a href="./district-map.html">District map</a>
+        <a href="./data-sources.html">Data sources</a>
+        <a href="./about.html">About</a>
+      </nav>
+    </div>
+  </header>
 <main>
 <section class="hero"><div class="eyebrow">Crop intelligence · Season B</div><h1>Advanced Crop Performance Analysis</h1><p>Compare crop production, yield and land area across available years. Use the rankings to explore the published figures, then download a CSV report for further analysis.</p></section>
 <h2 class="section-title">Performance snapshot · latest available year</h2><div class="cards" id="summary"><div class="card">Loading crop data…</div></div>
