@@ -9,11 +9,30 @@
 <style>
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#f4f7f2;color:#24352a;font:16px/1.6 Arial,sans-serif}header{position:sticky;top:0;z-index:10;padding:16px 5%;background:rgba(255,255,255,.96);box-shadow:0 5px 20px #183c2012;backdrop-filter:blur(12px)}header h1{margin:0;color:#174d32;font-size:clamp(1.4rem,3vw,2rem)}header p{margin:3px 0;color:#607568}.nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.nav a{padding:9px 13px;border-radius:999px;background:#e5f1e7;color:#174d32;text-decoration:none;font-weight:bold;font-size:.9rem}.nav a:hover{background:#1f7044;color:#fff}.nav a[aria-current=page]{background:#174d32;color:white}main{max-width:1150px;margin:24px auto;padding:0 16px 28px}.hero{padding:clamp(28px,5vw,52px);min-height:270px;display:flex;flex-direction:column;justify-content:center;color:#fff;border-radius:18px;background:linear-gradient(100deg,#092d1bea,#104a2ab8),url('https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1800&q=85') center/cover}.hero h2{font-size:clamp(2rem,4vw,3rem);line-height:1.12;margin:0 0 12px}.hero p{max-width:780px;margin:0;color:#eef8f0}.card{margin-top:20px;padding:22px;background:white;border:1px solid #e0e9e1;border-radius:15px;box-shadow:0 5px 18px #183c200b}.card h2{margin-top:0;color:#174d32}.muted{color:#526459}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.stat{padding:16px;border-radius:11px;background:#f1f7f1;border:1px solid #dce9de;overflow-wrap:anywhere}.stat strong{display:block;color:#17643e;font-size:1.65rem}.controls{display:flex;gap:12px;flex-wrap:wrap;align-items:end}.field{display:flex;flex-direction:column;gap:6px;font-weight:bold;flex:1;min-width:220px}select,button{font:inherit;padding:11px 13px;border-radius:8px;border:1px solid #cbd8cd}select{background:white;color:#24352a}button{border:0;background:#17643e;color:#fff;font-weight:bold;cursor:pointer}button:hover{filter:brightness(1.08)}button:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid #e3ad32;outline-offset:3px}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:600px}th,td{text-align:left;padding:12px;border-bottom:1px solid #e2eae3}th{background:#e7f1e8;color:#174d32}tbody tr:nth-child(even){background:#f7faf7}.pill{display:inline-block;padding:3px 9px;border-radius:999px;background:#e5f1e7;color:#174d32;font-weight:bold;font-size:.85rem}.coverage-value{display:block;font-weight:bold;font-variant-numeric:tabular-nums}.coverage-track{height:8px;min-width:100px;margin-top:6px;overflow:hidden;border-radius:999px;background:#e7eee8}.coverage-fill{height:100%;border-radius:999px;background:#21834b;transition:width .35s ease}.coverage-fill.partial{background:#d29b22}.coverage-fill.low{background:#c65343}.notice{padding:14px;border-left:4px solid #d9a323;background:#fff8df}.status{margin-top:12px;color:#526459}footer{text-align:center;padding:22px;color:#657469;font-size:.9rem}@media(max-width:760px){header{position:relative;padding:16px}.nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.nav a{text-align:center;font-size:.82rem;padding:9px 6px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.card{padding:16px}.field{min-width:100%}}@media(max-width:380px){.stats{grid-template-columns:1fr}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important;animation:none!important}}
 </style>
+  <link rel="stylesheet" href="./site-theme.css">
 </head>
 <body>
-<header><h1>🌱 AgriSmart Rwanda</h1><p>Data Quality & Coverage Explorer</p><nav class="nav" aria-label="Main navigation">
-<a href="./index.html">Home</a><a href="./national-dashboard.html">National dashboard</a><a href="./districts.html">District productivity</a><a href="./insights.html">Agricultural insights</a><a href="./recommendations.html">Recommendations</a><a href="./season-comparison.html">Season comparison</a><a href="./data-sources.html">Data sources</a><a href="./data-quality.html" aria-current="page">Data quality</a><a href="./district-map.html">District map</a>
-</nav></header>
+<header>
+    <div class="agri-header-inner">
+      <div class="agri-brand-block">
+        <div class="agri-brand">🌱 AgriSmart Rwanda</div>
+        <div class="agri-subtitle">Data quality and dataset coverage</div>
+      </div>
+      <nav class="agri-nav" aria-label="Main navigation">
+        <a href="./index.html">Home</a>
+        <a href="./national-dashboard.html">National dashboard</a>
+        <a href="./districts.html">Districts</a>
+        <a href="./insights.html">Insights</a>
+        <a href="./recommendations.html">Recommendations</a>
+        <a href="./season-comparison.html">Season comparison</a>
+        <a href="./crop-performance.html">Crop performance</a>
+        <a href="./data-quality.html" aria-current="page">Data quality</a>
+        <a href="./district-map.html">District map</a>
+        <a href="./data-sources.html">Data sources</a>
+        <a href="./about.html">About</a>
+      </nav>
+    </div>
+  </header>
 <main>
 <section class="hero"><h2>Know what the data can—and cannot—tell us</h2><p>Explore coverage and missing values in AgriSmart's prepared NISR Season B 2025 district datasets. Counts are calculated from the published CSV files, not manually estimated.</p></section>
 <section class="card"><h2>Dataset coverage at a glance</h2><p class="muted">These figures update when the prepared datasets load. A missing value is not treated as zero.</p><div class="stats">
