@@ -2988,7 +2988,7 @@
       document.getElementById("consistencyMedian").textContent=fmt(med);
       document.getElementById("consistencyRange").textContent=low==null?"Unavailable":fmt(low)+" – "+fmt(high);
       document.getElementById("consistencyStd").textContent=fmt(sd);
-      document.getElementById("consistencyCv").textContent=fmt(cv==null?null:cv)+"%";
+      document.getElementById("consistencyCv").textContent=cv==null?"Unavailable":fmt(cv)+"%";
       report=districtRows.slice().sort((a,b)=>b.yield-a.yield||a.district.localeCompare(b.district)).map((r,i)=>({rank:i+1,district:r.district,crop,yieldValue:r.yield,mean,difference:r.yield-mean,pct:mean>0?(r.yield-mean)/mean*100:null,year:r.year,season:r.season,source:r.source||r.source_table||"NISR Seasonal Agricultural Survey 2025, Season B"}));
       tbody.replaceChildren();
       report.forEach(r=>{const tr=document.createElement("tr");[r.rank,r.district,fmt(r.yieldValue),fmt(r.difference),fmt(r.pct)==="Unavailable"?"Unavailable":fmt(r.pct)+"%"].forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.appendChild(td);});tbody.appendChild(tr);});
