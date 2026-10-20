@@ -3222,5 +3222,74 @@
   })();
   </script>
 
+
+  <!-- Cross-District Crop Yield Spread -->
+  <section id="districtCropYieldCrossDistrictSpread" class="dashboard-section" style="margin:28px 0;padding:22px;border:1px solid #d8e1ea;border-radius:16px;background:var(--card-bg,#fff);">
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+      <div style="font-size:28px;" aria-hidden="true">↔️</div>
+      <div>
+        <h2 style="margin:0 0 5px;">Cross-District Crop Yield Spread</h2>
+        <p style="margin:0;color:var(--muted,#64748b);">Explore the gap between higher- and lower-yielding districts for a selected crop in 2025 Season B.</p>
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin:18px 0;">
+      <label style="display:flex;flex-direction:column;gap:6px;min-width:220px;">Select crop
+        <select id="yieldSpreadCrop" style="padding:9px;border:1px solid #cbd5e1;border-radius:8px;max-width:100%;"><option value="">Loading crops…</option></select>
+      </label>
+      <label style="display:flex;flex-direction:column;gap:6px;min-width:150px;">Number of districts to show
+        <select id="yieldSpreadCount" style="padding:9px;border:1px solid #cbd5e1;border-radius:8px;"><option value="5">Top/bottom 5</option><option value="10">Top/bottom 10</option><option value="15">Top/bottom 15</option></select>
+      </label>
+      <button id="downloadYieldSpread" type="button" style="padding:10px 14px;border:0;border-radius:8px;cursor:pointer;">Download spread report CSV</button>
+    </div>
+    <p id="yieldSpreadStatus" role="status" style="margin:8px 0;color:var(--muted,#64748b);">Loading district crop-yield data…</p>
+    <div id="yieldSpreadCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin:14px 0;"></div>
+    <h3>Highest reported yields</h3>
+    <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr><th style="text-align:left;padding:9px;border-bottom:1px solid #cbd5e1;">Rank</th><th style="text-align:left;padding:9px;border-bottom:1px solid #cbd5e1;">District</th><th style="text-align:right;padding:9px;border-bottom:1px solid #cbd5e1;">Yield (kg/ha)</th></tr></thead><tbody id="yieldSpreadTopBody"></tbody></table></div>
+    <h3 style="margin-top:20px;">Lowest positive reported yields</h3>
+    <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr><th style="text-align:left;padding:9px;border-bottom:1px solid #cbd5e1;">Rank from lowest</th><th style="text-align:left;padding:9px;border-bottom:1px solid #cbd5e1;">District</th><th style="text-align:right;padding:9px;border-bottom:1px solid #cbd5e1;">Yield (kg/ha)</th></tr></thead><tbody id="yieldSpreadBottomBody"></tbody></table></div>
+    <p style="font-size:12px;color:var(--muted,#64748b);margin-top:12px;">Spread compares the highest and lowest positive finite reported district yields. It is descriptive, not a measure of causes or farming quality. Missing and non-positive values are excluded from the spread calculation and shown in the report as unavailable.</p>
+  </section>
+  <script>
+  (function(){
+    const root=document.getElementById("districtCropYieldCrossDistrictSpread");if(!root||root.dataset.initialized==="true")return;root.dataset.initialized="true";
+    const cropSelect=document.getElementById("yieldSpreadCrop"),countSelect=document.getElementById("yieldSpreadCount"),status=document.getElementById("yieldSpreadStatus");
+    const cards=document.getElementById("yieldSpreadCards"),topBody=document.getElementById("yieldSpreadTopBody"),bottomBody=document.getElementById("yieldSpreadBottomBody"),download=document.getElementById("downloadYieldSpread");
+    let rows=[],report=null;
+    const num=v=>{if(v===null||v===undefined||String(v).trim()==="")return null;const n=Number(String(v).replace(/,/g,""));return Number.isFinite(n)?n:null;};
+    const fmt=v=>v===null||!Number.isFinite(v)?"Unavailable":v.toLocaleString(undefined,{maximumFractionDigits:2});
+    const csvCell=v=>{const s=v===null||v===undefined?"":String(v);return '"'+s.replace(/"/g,'""')+'"';};
+    const td=(tr,value,align)=>{const el=document.createElement("td");el.textContent=value;el.style.cssText="padding:9px;border-bottom:1px solid #e2e8f0;"+(align?"text-align:"+align+";":"");tr.appendChild(el);};
+    function render(){
+      const crop=cropSelect.value,all=rows.filter(r=>r.crop===crop);
+      const valid=all.filter(r=>r.yieldValue!==null&&r.yieldValue>0).sort((a,b)=>a.yieldValue-b.yieldValue||a.district.localeCompare(b.district));
+      if(!crop||!all.length){status.textContent="No district records are available for this crop.";cards.replaceChildren();topBody.replaceChildren();bottomBody.replaceChildren();report=null;return;}
+      const low=valid[0]||null,high=valid[valid.length-1]||null,spread=low&&high?high.yieldValue-low.yieldValue:null;
+      const ratio=low&&high&&low.yieldValue>0?high.yieldValue/low.yieldValue:null;
+      const median=valid.length?(valid.length%2?valid[(valid.length-1)/2].yieldValue:(valid[valid.length/2-1].yieldValue+valid[valid.length/2].yieldValue)/2):null;
+      const n=Math.min(Number(countSelect.value)||5,valid.length);
+      const stats=[["Valid positive yields",String(valid.length)],["Highest yield",high?fmt(high.yieldValue)+" kg/ha":"Unavailable"],["Lowest positive yield",low?fmt(low.yieldValue)+" kg/ha":"Unavailable"],["Absolute spread",spread===null?"Unavailable":fmt(spread)+" kg/ha"],["Highest / lowest ratio",ratio===null?"Unavailable":fmt(ratio)+"×"],["Median yield",fmt(median)+" kg/ha"],["Unavailable records",String(all.length-valid.length)]];
+      cards.replaceChildren();stats.forEach(([label,value])=>{const card=document.createElement("div");card.style.cssText="padding:13px;border:1px solid #dbe3ec;border-radius:10px;";const l=document.createElement("div");l.textContent=label;l.style.cssText="font-size:12px;color:#64748b;margin-bottom:6px;";const v=document.createElement("strong");v.textContent=value;v.style.fontSize="18px";card.append(l,v);cards.appendChild(card);});
+      topBody.replaceChildren();valid.slice(-n).reverse().forEach((r,i)=>{const tr=document.createElement("tr");td(tr,String(i+1));td(tr,r.district);td(tr,fmt(r.yieldValue),"right");topBody.appendChild(tr);});
+      bottomBody.replaceChildren();valid.slice(0,n).forEach((r,i)=>{const tr=document.createElement("tr");td(tr,String(i+1));td(tr,r.district);td(tr,fmt(r.yieldValue),"right");bottomBody.appendChild(tr);});
+      status.textContent="Showing "+n+" highest and "+n+" lowest positive yield(s) for "+crop+" from "+valid.length+" valid district record(s).";
+      report={crop,all,valid,stats,low,high,spread,ratio,median,n};
+    }
+    fetch("data/processed/agrismart_district_crop_yield_2025.csv").then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.text();}).then(raw=>{
+      if(typeof Papa==="undefined")throw new Error("CSV parser is unavailable");
+      const parsed=Papa.parse(raw,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")});
+      rows=(parsed.data||[]).map(r=>({district:String(r.district??"").trim(),crop:String(r.crop??"").trim(),yieldValue:num(r.yield_kg_per_ha),year:String(r.year??"").trim(),season:String(r.season??"").trim()})).filter(r=>r.district&&r.crop&&r.year==="2025"&&r.season.toUpperCase()==="B");
+      const crops=[...new Set(rows.map(r=>r.crop))].sort((a,b)=>a.localeCompare(b));cropSelect.replaceChildren();crops.forEach(crop=>{const opt=document.createElement("option");opt.value=crop;opt.textContent=crop;cropSelect.appendChild(opt);});
+      if(!crops.length)throw new Error("No 2025 Season B crop records found");cropSelect.disabled=false;render();
+    }).catch(err=>{status.textContent="Could not load crop-yield data: "+err.message;});
+    cropSelect.addEventListener("change",render);countSelect.addEventListener("change",render);
+    download.addEventListener("click",()=>{
+      if(!report)return;
+      const lines=[["Crop",report.crop],["Year","2025"],["Season","B"],["Valid positive yield records",report.valid.length],["Highest district",report.high?report.high.district:""],["Highest yield (kg/ha)",report.high?report.high.yieldValue:""],["Lowest district",report.low?report.low.district:""],["Lowest positive yield (kg/ha)",report.low?report.low.yieldValue:""],["Absolute spread (kg/ha)",report.spread],["Highest-to-lowest ratio",report.ratio],[],["District","Reported yield (kg/ha)","Valid positive yield"]];
+      report.all.slice().sort((a,b)=>a.district.localeCompare(b.district)).forEach(r=>lines.push([r.district,r.yieldValue,r.yieldValue!==null&&r.yieldValue>0?"Yes":"No"]));
+      const blob=new Blob(["\uFEFF"+lines.map(row=>row.map(csvCell).join(",")).join("\r\n")],{type:"text/csv;charset=utf-8;"});const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="agrismart_district_crop_yield_spread.csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    });
+  })();
+  </script>
+
 </body>
 </html>
