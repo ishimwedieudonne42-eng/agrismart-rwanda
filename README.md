@@ -35,6 +35,7 @@ The dashboards use published NISR Seasonal Agricultural Survey (SAS) 2025, Seaso
 - Processed erosion data: `data/processed/agrismart_district_erosion_2025.csv`
 - Data inventory: [`docs/data_inventory.md`](docs/data_inventory.md)
 - Selected table notes: [`docs/selected_tables.md`](docs/selected_tables.md)
+- Methodology and interpretation: [`docs/methodology.md`](docs/methodology.md)
 
 Use the source tables and their definitions when interpreting a statistic. The coverage of indicators and crops can differ; a missing value must not be treated as zero.
 
