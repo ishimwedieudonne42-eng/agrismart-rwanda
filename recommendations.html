@@ -58,20 +58,93 @@
       html { scroll-behavior: auto; }
       *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
     }
+
+    /* Shared AgriSmart visual system: consistent header, navigation, hero and controls. */
+    :root { --green: #174d32; --green2: #2b7049; --light: #e5f1e7; --ink: #24352a; --muted: #64766a; }
+    header {
+      padding: 13px 5%; background: rgba(255,255,255,.94); color: var(--green);
+      border-bottom: 1px solid #dbe9dd; box-shadow: 0 5px 20px #183c2010;
+      backdrop-filter: blur(12px);
+    }
+    .header-inner {
+      max-width: 1250px; margin: 0 auto; display: flex; justify-content: space-between;
+      align-items: center; gap: 18px; flex-wrap: wrap;
+    }
+    .brand { font-size: 1.2rem; font-weight: 800; color: var(--green); letter-spacing: -.02em; }
+    .header-subtitle { color: var(--muted); font-size: .86rem; margin-top: 2px; }
+    .nav { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .nav a {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 8px 11px; border-radius: 999px; color: #244a32; text-decoration: none;
+      font-size: .88rem; font-weight: 700; border: 1px solid transparent;
+      transition: background .2s ease, color .2s ease, transform .2s ease;
+    }
+    .nav a:hover, .nav a:focus-visible { background: var(--light); color: var(--green); transform: translateY(-1px); }
+    .nav a[aria-current="page"] { background: var(--green2); color: #fff; box-shadow: 0 5px 13px #2b70492e; }
+    main { max-width: 1200px; padding: 26px 18px 50px; }
+    .hero {
+      min-height: 300px; padding: clamp(25px, 5vw, 48px); border-radius: 20px;
+      background: linear-gradient(100deg, rgba(8,43,27,.93), rgba(23,77,50,.68)),
+        url('https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1800&q=85') center/cover;
+      box-shadow: 0 15px 32px #174d321c; animation: appear .6s ease both;
+    }
+    .hero h2 { color: #fff; font-size: clamp(2rem, 4.5vw, 3rem); line-height: 1.12; margin-bottom: 14px; }
+    .hero p { max-width: 850px; font-size: 1.03rem; line-height: 1.75; }
+    .card { border-radius: 15px; box-shadow: 0 4px 16px #183c2008; }
+    .card:not(.hero):hover { border-color: #b8d7be; box-shadow: 0 10px 24px #174d3215; }
+    select, button { border-radius: 9px; padding: 10px 12px; }
+    select { width: 100%; min-height: 45px; }
+    button { background: var(--green2); transition: background .2s ease, transform .2s ease, box-shadow .2s ease; }
+    button:hover:not(:disabled) { background: var(--green); transform: translateY(-1px); box-shadow: 0 5px 13px #174d3224; }
+    .stat { border-radius: 13px; }
+    .priority { border-radius: 14px; }
+    .notice { border-radius: 6px; }
+    @keyframes appear { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    @media (max-width: 900px) {
+      .header-inner { align-items: flex-start; flex-direction: column; gap: 10px; }
+      .nav { width: 100%; }
+    }
+    @media (max-width: 600px) {
+      header { padding: 12px 14px; }
+      .brand { font-size: 1.12rem; }
+      .header-subtitle { font-size: .8rem; }
+      .nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 6px; }
+      .nav a { width: 100%; min-height: 42px; padding: 7px 6px; text-align: center; font-size: .8rem; }
+      .nav a[aria-current="page"] { grid-column: span 2; }
+      main { padding: 16px 12px 30px; }
+      .hero { min-height: 330px; padding: 24px 18px; border-radius: 14px; }
+      .hero h2 { font-size: clamp(1.8rem, 8vw, 2.35rem); }
+      .card { padding: 18px; }
+      .stats, .priority-grid { grid-template-columns: minmax(0, 1fr); }
+      #downloadReport, #planningDownload { width: 100%; min-height: 46px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .hero, .card { animation: none !important; }
+    }
+
   </style>
 </head>
 <body>
   <header>
-    <h1>🌱 AgriSmart Rwanda</h1>
-    <p>Agricultural Recommendations & District Priorities</p>
-    <nav class="nav-buttons" aria-label="Main navigation">
-      <a href="./national-dashboard.html">National dashboard</a>
-      <a href="./districts.html">District productivity</a>
-      <a href="./insights.html">Agricultural insights</a>
-      <a href="./recommendations.html" aria-current="page" aria-disabled="true">Recommendations</a>
-      <a href="./about.html">Project overview</a>
-      <a href="./data-sources.html">Data sources</a><a href="./season-comparison.html">Season comparison</a>
-    </nav>
+    <div class="header-inner">
+      <div class="brand-block">
+        <div class="brand">🌱 AgriSmart Rwanda</div>
+        <div class="header-subtitle">Agricultural intelligence from published statistics</div>
+      </div>
+      <nav class="nav" aria-label="Main navigation">
+        <a href="./index.html">Home</a>
+        <a href="./national-dashboard.html">National dashboard</a>
+        <a href="./districts.html">Districts</a>
+        <a href="./insights.html">Insights</a>
+        <a href="./recommendations.html" aria-current="page">Recommendations</a>
+        <a href="./season-comparison.html">Season comparison</a>
+        <a href="./crop-performance.html">Crop performance</a>
+        <a href="./data-quality.html">Data quality</a>
+        <a href="./district-map.html">District map</a>
+        <a href="./data-sources.html">Data sources</a>
+        <a href="./about.html">About</a>
+      </nav>
+    </div>
   </header>
   <main>
     <section class="card hero">
