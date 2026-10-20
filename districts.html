@@ -3416,5 +3416,68 @@
   })();
   </script>
 
+
+  <section id="districtCropYieldHeatmap" class="dashboard-section" style="margin:28px 0;padding:22px;border:1px solid #d8e1ea;border-radius:16px;background:var(--card-bg,#fff);">
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+      <div style="font-size:28px;" aria-hidden="true">🟩</div>
+      <div><h2 style="margin:0 0 5px;">District Crop Yield Heatmap</h2>
+      <p style="margin:0;color:var(--muted,#64748b);">Compare reported yields across districts and crops using each crop's own average as the baseline.</p></div>
+    </div>
+    <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin:18px 0;">
+      <label style="display:flex;flex-direction:column;gap:6px;min-width:220px;">Find district
+        <input id="yieldHeatmapSearch" type="search" placeholder="Type a district name…" style="padding:9px;border:1px solid #cbd5e1;border-radius:8px;max-width:100%;">
+      </label>
+      <label style="display:flex;flex-direction:column;gap:6px;min-width:220px;">Sort districts
+        <select id="yieldHeatmapSort" style="padding:9px;border:1px solid #cbd5e1;border-radius:8px;max-width:100%;">
+          <option value="name">District name (A–Z)</option><option value="coverage">Most crop records</option><option value="above">Most above-mean crops</option>
+        </select>
+      </label>
+      <button id="downloadYieldHeatmap" type="button" style="padding:10px 14px;border:0;border-radius:8px;cursor:pointer;">Download heatmap CSV</button>
+    </div>
+    <p id="yieldHeatmapStatus" role="status" style="margin:8px 0;color:var(--muted,#64748b);">Loading district crop-yield data…</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:13px;margin:12px 0;">
+      <span>🟥 Below 80% of crop mean</span><span>🟨 80–119% of crop mean</span><span>🟩 120% or more of crop mean</span><span>⬜ Missing/unavailable</span>
+    </div>
+    <div style="overflow:auto;max-height:620px;border:1px solid #e2e8f0;border-radius:8px;">
+      <table style="width:100%;border-collapse:separate;border-spacing:0;white-space:nowrap;">
+        <thead id="yieldHeatmapHead"></thead><tbody id="yieldHeatmapBody"></tbody>
+      </table>
+    </div>
+    <p style="font-size:12px;color:var(--muted,#64748b);margin-top:12px;">Each cell shows the district's yield relative to the mean of valid positive district yields for that crop. Because crops have different units of productivity and typical yield levels, colors compare each crop to its own mean rather than comparing raw yields between crops. This is descriptive, not a causal or production-weighted comparison.</p>
+  </section>
+  <script>
+  (function(){
+    const root=document.getElementById("districtCropYieldHeatmap");if(!root||root.dataset.initialized==="true")return;root.dataset.initialized="true";
+    const search=document.getElementById("yieldHeatmapSearch"),sort=document.getElementById("yieldHeatmapSort"),status=document.getElementById("yieldHeatmapStatus"),head=document.getElementById("yieldHeatmapHead"),body=document.getElementById("yieldHeatmapBody"),download=document.getElementById("downloadYieldHeatmap");
+    let rows=[],districts=[],crops=[],report=[];
+    const num=v=>{if(v===null||v===undefined||String(v).trim()==="")return null;const n=Number(String(v).replace(/,/g,""));return Number.isFinite(n)?n:null;};
+    const fmt=v=>v===null||!Number.isFinite(v)?"Unavailable":v.toLocaleString(undefined,{maximumFractionDigits:2});
+    const csvCell=v=>{const s=v===null||v===undefined?"":String(v);return '"'+s.replace(/"/g,'""')+'"';};
+    function render(){
+      const q=search.value.trim().toLocaleLowerCase(),stats=new Map();
+      crops.forEach(c=>{const vals=rows.filter(r=>r.crop===c&&r.yieldValue!==null&&r.yieldValue>0).map(r=>r.yieldValue);stats.set(c,{mean:vals.length?vals.reduce((a,b)=>a+b,0)/vals.length: null,count:vals.length});});
+      let shown=districts.filter(d=>d.toLocaleLowerCase().includes(q)).map(d=>{
+        const cells=crops.map(c=>{const match=rows.find(r=>r.district===d&&r.crop===c),y=match?match.yieldValue:null,m=stats.get(c).mean;return {district:d,crop:c,yieldValue:y,mean:m,index:y!==null&&y>0&&m>0?y/m*100:null};});
+        return {district:d,cells,coverage:cells.filter(x=>x.yieldValue!==null&&x.yieldValue>0).length,above:cells.filter(x=>x.index!==null&&x.index>=120).length};
+      });
+      shown.sort((a,b)=>sort.value==="coverage"?b.coverage-a.coverage||a.district.localeCompare(b.district):sort.value==="above"?b.above-a.above||a.district.localeCompare(b.district):a.district.localeCompare(b.district));
+      report=shown;
+      head.replaceChildren();body.replaceChildren();
+      const hr=document.createElement("tr");["District",...crops].forEach((label,i)=>{const th=document.createElement("th");th.textContent=label;th.style.cssText="position:sticky;top:0;background:var(--card-bg,#fff);z-index:1;text-align:"+(i?"right":"left")+";padding:9px;border-bottom:1px solid #cbd5e1;";hr.appendChild(th);});head.appendChild(hr);
+      shown.forEach(r=>{const tr=document.createElement("tr");const first=document.createElement("th");first.textContent=r.district;first.style.cssText="position:sticky;left:0;background:var(--card-bg,#fff);text-align:left;padding:9px;border-bottom:1px solid #e2e8f0;z-index:1;";tr.appendChild(first);
+        r.cells.forEach(cell=>{const td=document.createElement("td");td.style.cssText="text-align:right;padding:9px;border-bottom:1px solid #e2e8f0;min-width:92px;";if(cell.index===null){td.textContent="—";td.title="No valid positive yield";td.style.background="#f1f5f9";}else{td.textContent=fmt(cell.yieldValue)+" ("+fmt(cell.index)+"%)";td.title=cell.crop+": "+fmt(cell.yieldValue)+" kg/ha; "+fmt(cell.index)+"% of crop mean";td.style.background=cell.index<80?"#fee2e2":cell.index<120?"#fef3c7":"#dcfce7";}tr.appendChild(td);});body.appendChild(tr);});
+      status.textContent="Showing "+shown.length+" of "+districts.length+" districts and "+crops.length+" crops. Colors indicate yield relative to each crop's district mean.";
+    }
+    fetch("data/processed/agrismart_district_crop_yield_2025.csv").then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.text();}).then(raw=>{
+      if(typeof Papa==="undefined")throw new Error("CSV parser is unavailable");
+      const parsed=Papa.parse(raw,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")});
+      rows=(parsed.data||[]).map(r=>({district:String(r.district??"").trim(),crop:String(r.crop??"").trim(),yieldValue:num(r.yield_kg_per_ha),year:String(r.year??"").trim(),season:String(r.season??"").trim()})).filter(r=>r.district&&r.crop&&r.year==="2025"&&r.season.toUpperCase()==="B");
+      districts=[...new Set(rows.map(r=>r.district))].sort((a,b)=>a.localeCompare(b));crops=[...new Set(rows.map(r=>r.crop))].sort((a,b)=>a.localeCompare(b));if(!districts.length||!crops.length)throw new Error("No 2025 Season B district crop records found");render();
+    }).catch(err=>{status.textContent="Could not load crop-yield data: "+err.message;});
+    search.addEventListener("input",render);sort.addEventListener("change",render);
+    download.addEventListener("click",()=>{const lines=[["district",...crops.map(c=>c+" reported yield (kg/ha)"),...crops.map(c=>c+" index (% of crop mean)")].map(csvCell).join(",")];report.forEach(r=>{const ys=r.cells.map(c=>c.yieldValue),ix=r.cells.map(c=>c.index);lines.push([r.district,...ys,...ix].map(csvCell).join(","));});const blob=new Blob(["\uFEFF"+lines.join("\r\n")],{type:"text/csv;charset=utf-8;"});const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="agrismart_district_crop_yield_heatmap.csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);});
+  })();
+  </script>
+
 </body>
 </html>
