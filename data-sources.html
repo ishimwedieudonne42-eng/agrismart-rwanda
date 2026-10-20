@@ -51,18 +51,29 @@
       *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
     }
   </style>
+  <link rel="stylesheet" href="./site-theme.css">
 </head>
 <body>
   <header>
-    <h1>🌱 AgriSmart Rwanda</h1>
-    <p>Data sources, dataset inventory, and references</p>
-    <nav class="nav-buttons" aria-label="Main navigation">
-      <a href="./national-dashboard.html">National dashboard</a>
-      <a href="./districts.html">District productivity</a>
-      <a href="./insights.html">Agricultural insights</a><a href="./recommendations.html">Recommendations</a>
-      <a href="./about.html">Project overview</a>
-      <a href="./data-sources.html">Data sources</a><a href="./season-comparison.html">Season comparison</a>
-    </nav>
+    <div class="agri-header-inner">
+      <div class="agri-brand-block">
+        <div class="agri-brand">🌱 AgriSmart Rwanda</div>
+        <div class="agri-subtitle">Data sources, datasets and references</div>
+      </div>
+      <nav class="agri-nav" aria-label="Main navigation">
+        <a href="./index.html">Home</a>
+        <a href="./national-dashboard.html">National dashboard</a>
+        <a href="./districts.html">Districts</a>
+        <a href="./insights.html">Insights</a>
+        <a href="./recommendations.html">Recommendations</a>
+        <a href="./season-comparison.html">Season comparison</a>
+        <a href="./crop-performance.html">Crop performance</a>
+        <a href="./data-quality.html">Data quality</a>
+        <a href="./district-map.html">District map</a>
+        <a href="./data-sources.html" aria-current="page">Data sources</a>
+        <a href="./about.html">About</a>
+      </nav>
+    </div>
   </header>
   <main>
     <section class="card source-hero">
