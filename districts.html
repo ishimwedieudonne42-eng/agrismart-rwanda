@@ -2941,5 +2941,80 @@
   })();
   </script>
 
+  <section class="card" id="districtCropYieldConsistencySummary" style="margin-top:1.5rem;">
+    <h2>District Crop Yield Consistency Summary</h2>
+    <p>Compare how consistently a selected crop is reported across districts in the 2025 Season B dataset. The summary reports the number of districts with usable yields, the average and median yield, the range, and the relative spread (coefficient of variation). This describes the observed dataset, not future risk or farm-level performance.</p>
+    <div class="compare-controls">
+      <div class="compare-field"><label for="consistencyCrop">Crop</label><select id="consistencyCrop" disabled><option>Loading crops...</option></select></div>
+    </div>
+    <p id="consistencyStatus" class="compare-note" role="status" aria-live="polite">Loading crop-yield records...</p>
+    <div class="ranking-grid">
+      <div class="ranking-card"><div class="ranking-label">Districts with usable yields</div><div class="ranking-value" id="consistencyCount">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Average yield (kg/ha)</div><div class="ranking-value" id="consistencyMean">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Median yield (kg/ha)</div><div class="ranking-value" id="consistencyMedian">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Lowest–highest yield (kg/ha)</div><div class="ranking-value" id="consistencyRange">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Standard deviation (kg/ha)</div><div class="ranking-value" id="consistencyStd">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Coefficient of variation</div><div class="ranking-value" id="consistencyCv">—</div></div>
+    </div>
+    <h3>District yields, ranked</h3>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>Rank</th><th>District</th><th>Reported yield (kg/ha)</th><th>Difference from crop mean (kg/ha)</th><th>Difference from mean (%)</th></tr></thead>
+        <tbody id="consistencyBody"><tr><td colspan="5">Loading...</td></tr></tbody>
+      </table>
+    </div>
+    <button id="downloadConsistency" type="button" disabled style="padding:11px 14px;border:0;border-radius:7px;background:#17643e;color:white;font-weight:bold;cursor:pointer;margin-top:12px;">Download consistency summary (CSV)</button>
+    <p class="compare-note">Calculations use positive reported yields only. Standard deviation is the population standard deviation of available district values. Coefficient of variation = standard deviation ÷ mean × 100; it is unavailable if there are too few usable values or the mean is zero. Mean-relative percentages are unavailable if the mean is zero.</p>
+  </section>
+  <script>
+  (() => {
+    const cropSelect=document.getElementById("consistencyCrop"),status=document.getElementById("consistencyStatus"),tbody=document.getElementById("consistencyBody"),download=document.getElementById("downloadConsistency");
+    const num=v=>{const s=String(v??"").trim(),n=Number(s);return s!==""&&Number.isFinite(n)?n:null;};
+    const fmt=v=>v==null?"Unavailable":v.toLocaleString(undefined,{maximumFractionDigits:2});
+    const csvCell=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"';
+    const median=values=>{if(!values.length)return null;const s=values.slice().sort((a,b)=>a-b),m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2;};
+    let rows=[],report=[];
+    function render(){
+      const crop=cropSelect.value;
+      const selected=rows.filter(r=>r.crop===crop);
+      const districtRows=selected.filter(r=>r.yield!=null&&r.yield>0);
+      const vals=districtRows.map(r=>r.yield);
+      const mean=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
+      const med=median(vals),low=vals.length?Math.min(...vals):null,high=vals.length?Math.max(...vals):null;
+      const variance=mean==null?null:vals.reduce((sum,v)=>sum+(v-mean)**2,0)/vals.length;
+      const sd=variance==null?null:Math.sqrt(variance),cv=mean!=null&&mean>0&&vals.length>1?sd/mean*100:null;
+      document.getElementById("consistencyCount").textContent=String(vals.length);
+      document.getElementById("consistencyMean").textContent=fmt(mean);
+      document.getElementById("consistencyMedian").textContent=fmt(med);
+      document.getElementById("consistencyRange").textContent=low==null?"Unavailable":fmt(low)+" – "+fmt(high);
+      document.getElementById("consistencyStd").textContent=fmt(sd);
+      document.getElementById("consistencyCv").textContent=fmt(cv==null?null:cv)+"%";
+      report=districtRows.slice().sort((a,b)=>b.yield-a.yield||a.district.localeCompare(b.district)).map((r,i)=>({rank:i+1,district:r.district,crop,yieldValue:r.yield,mean,difference:r.yield-mean,pct:mean>0?(r.yield-mean)/mean*100:null,year:r.year,season:r.season,source:r.source||r.source_table||"NISR Seasonal Agricultural Survey 2025, Season B"}));
+      tbody.replaceChildren();
+      report.forEach(r=>{const tr=document.createElement("tr");[r.rank,r.district,fmt(r.yieldValue),fmt(r.difference),fmt(r.pct)==="Unavailable"?"Unavailable":fmt(r.pct)+"%"].forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.appendChild(td);});tbody.appendChild(tr);});
+      const missing=selected.length-vals.length;
+      status.textContent=vals.length?"Showing "+vals.length+" positive reported district yields for "+crop+(missing?"; "+missing+" records are zero, missing, or invalid and excluded from the statistics.":"."):"No positive reported yields are available for this crop.";
+      download.disabled=!report.length;
+    }
+    fetch("./data/processed/agrismart_district_crop_yield_2025.csv").then(r=>{if(!r.ok)throw new Error("Crop-yield dataset could not be loaded");return r.text();}).then(raw=>{
+      const parsed=Papa.parse(raw,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")});
+      rows=(parsed.data||[]).map(r=>({district:String(r.district??"").trim(),crop:String(r.crop??"").trim(),yield:num(r.yield_kg_per_ha),year:String(r.year??"").trim(),season:String(r.season??"").trim(),source:r.source||"",source_table:r.source_table||""}))
+        .filter(r=>r.district&&r.crop&&r.year==="2025"&&r.season.toUpperCase()==="B");
+      const crops=[...new Set(rows.map(r=>r.crop))].sort((a,b)=>a.localeCompare(b));
+      cropSelect.replaceChildren();crops.forEach(crop=>{const opt=document.createElement("option");opt.value=crop;opt.textContent=crop;cropSelect.appendChild(opt);});
+      cropSelect.disabled=!crops.length;render();
+    }).catch(err=>{status.textContent="Could not load crop-yield data: "+err.message;});
+    cropSelect.addEventListener("change",render);
+    download.addEventListener("click",()=>{
+      if(!report.length)return;
+      const columns=["rank","district","crop","reported_yield_kg_per_ha","crop_mean_kg_per_ha","difference_from_mean_kg_per_ha","difference_from_mean_percent","year","season","source"];
+      const lines=[columns.map(csvCell).join(",")];
+      report.forEach(r=>lines.push([r.rank,r.district,r.crop,r.yieldValue,r.mean,r.difference,r.pct,r.year,r.season,r.source].map(csvCell).join(",")));
+      const blob=new Blob(["\uFEFF"+lines.join("\r\n")],{type:"text/csv;charset=utf-8;"});
+      const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="agrismart_district_crop_yield_consistency_summary.csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    });
+  })();
+  </script>
+
 </body>
 </html>
