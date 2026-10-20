@@ -2848,5 +2848,98 @@
   })();
   </script>
 
+  <section class="card" id="allDistrictCropYieldGoalTracker" style="margin-top:1.5rem;">
+    <h2>All-District Crop Yield Goal Tracker</h2>
+    <p>Set one yield goal for a crop and compare it across every district in the available 2025 Season B dataset. This complements the single-district Goal Planner by showing which districts meet the goal and where reported yields fall short.</p>
+    <div class="compare-controls">
+      <div class="compare-field"><label for="allGoalCrop">Crop</label><select id="allGoalCrop" disabled><option>Loading crops...</option></select></div>
+      <div class="compare-field"><label for="allGoalValue">Goal yield (kg/ha)</label><input id="allGoalValue" type="number" min="0" step="any" inputmode="decimal" placeholder="Enter yield goal" /></div>
+    </div>
+    <p id="allGoalStatus" class="compare-note" role="status" aria-live="polite">Loading district crop-yield records...</p>
+    <div class="ranking-grid">
+      <div class="ranking-card"><div class="ranking-label">Districts meeting goal</div><div class="ranking-value" id="allGoalMet">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Districts below goal</div><div class="ranking-value" id="allGoalBelow">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">No usable reported yield</div><div class="ranking-value" id="allGoalUnavailable">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Average gap across reported yields (kg/ha)</div><div class="ranking-value" id="allGoalAverageGap">—</div></div>
+    </div>
+    <h3>District goal comparison</h3>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>Rank by reported yield</th><th>District</th><th>Reported yield (kg/ha)</th><th>Gap to goal (kg/ha)</th><th>Change needed (%)</th><th>Goal status</th></tr></thead>
+        <tbody id="allGoalBody"><tr><td colspan="6">Loading...</td></tr></tbody>
+      </table>
+    </div>
+    <button id="downloadAllGoal" type="button" disabled style="padding:11px 14px;border:0;border-radius:7px;background:#17643e;color:white;font-weight:bold;cursor:pointer;margin-top:12px;">Download all-district goal report (CSV)</button>
+    <p class="compare-note">Gap = goal minus reported yield. A positive gap means the district is below the goal; zero or a negative gap means it meets or exceeds it. Percentage change is unavailable for zero, missing, or invalid yields. Missing crop records are shown as unavailable, not as zero. The goal is a user-defined scenario, not a forecast or agronomic recommendation.</p>
+  </section>
+  <script>
+  (() => {
+    const cropSelect=document.getElementById("allGoalCrop"),goalInput=document.getElementById("allGoalValue");
+    const status=document.getElementById("allGoalStatus"),tbody=document.getElementById("allGoalBody"),download=document.getElementById("downloadAllGoal");
+    const num=v=>{const s=String(v??"").trim(),n=Number(s);return s!==""&&Number.isFinite(n)?n:null;};
+    const fmt=v=>v==null?"Unavailable":v.toLocaleString(undefined,{maximumFractionDigits:2});
+    const csvCell=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"';
+    let rows=[],districts=[],crops=[],report=[];
+    function render(){
+      const crop=cropSelect.value,goal=num(goalInput.value),validGoal=goal!=null&&goal>=0&&String(goalInput.value).trim()!=="";
+      const selected=rows.filter(r=>r.crop===crop);
+      const byDistrict=new Map(selected.map(r=>[r.district,r]));
+      const results=districts.map(district=>{
+        const row=byDistrict.get(district),yieldValue=row?row.yield:null;
+        const usable=yieldValue!=null&&yieldValue>=0;
+        const gap=usable&&validGoal?goal-yieldValue:null;
+        const pct=usable&&yieldValue>0&&validGoal?(goal-yieldValue)/yieldValue*100:null;
+        const goalStatus=!validGoal?"Enter valid goal":!usable?"No reported yield":yieldValue>=goal?"Meets goal":"Below goal";
+        return {district,crop,yieldValue:usable?yieldValue:null,gap,pct,goalStatus,year:2025,season:"B",source:row?(row.source||row.source_table||"NISR Seasonal Agricultural Survey 2025, Season B"):"No matching record"};
+      });
+      const ranked=results.slice().sort((a,b)=>{
+        if(a.yieldValue==null&&b.yieldValue==null)return a.district.localeCompare(b.district);
+        if(a.yieldValue==null)return 1;if(b.yieldValue==null)return -1;
+        return b.yieldValue-a.yieldValue||a.district.localeCompare(b.district);
+      });
+      const met=validGoal?results.filter(r=>r.yieldValue!=null&&r.yieldValue>=goal).length:0;
+      const below=validGoal?results.filter(r=>r.yieldValue!=null&&r.yieldValue<goal).length:0;
+      const unavailable=results.filter(r=>r.yieldValue==null).length;
+      const gaps=results.filter(r=>r.gap!=null).map(r=>r.gap);
+      const avg=gaps.length?gaps.reduce((sum,n)=>sum+n,0)/gaps.length:null;
+      document.getElementById("allGoalMet").textContent=validGoal?String(met):"—";
+      document.getElementById("allGoalBelow").textContent=validGoal?String(below):"—";
+      document.getElementById("allGoalUnavailable").textContent=String(unavailable);
+      document.getElementById("allGoalAverageGap").textContent=validGoal?fmt(avg):"—";
+      tbody.replaceChildren();
+      ranked.forEach((r,i)=>{
+        const tr=document.createElement("tr");
+        [r.yieldValue==null?"—":String(i+1),r.district,fmt(r.yieldValue),fmt(r.gap),fmt(r.pct),r.goalStatus].forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.appendChild(td);});
+        tbody.appendChild(tr);
+      });
+      report=ranked;
+      if(goalInput.value.trim()!==""&&!validGoal)status.textContent="Enter a valid goal of zero or more kg/ha.";
+      else if(!validGoal)status.textContent="Choose a crop and enter a goal to compare all districts.";
+      else status.textContent="Showing "+results.length+" districts for "+crop+". "+met+" meet or exceed the goal, "+below+" are below it, and "+unavailable+" have no usable reported yield.";
+      download.disabled=!crop||!validGoal||!results.length;
+    }
+    fetch("./data/processed/agrismart_district_crop_yield_2025.csv").then(r=>{if(!r.ok)throw new Error("Crop-yield dataset could not be loaded");return r.text();}).then(raw=>{
+      const parsed=Papa.parse(raw,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")});
+      rows=(parsed.data||[]).map(r=>({district:String(r.district??"").trim(),crop:String(r.crop??"").trim(),yield:num(r.yield_kg_per_ha),year:String(r.year??"").trim(),season:String(r.season??"").trim(),source:r.source||"",source_table:r.source_table||""}))
+        .filter(r=>r.district&&r.crop&&r.year==="2025"&&r.season.toUpperCase()==="B");
+      districts=[...new Set(rows.map(r=>r.district))].sort((a,b)=>a.localeCompare(b));
+      crops=[...new Set(rows.map(r=>r.crop))].sort((a,b)=>a.localeCompare(b));
+      cropSelect.replaceChildren();
+      crops.forEach(crop=>{const opt=document.createElement("option");opt.value=crop;opt.textContent=crop;cropSelect.appendChild(opt);});
+      cropSelect.disabled=!crops.length;render();
+    }).catch(err=>{status.textContent="Could not load crop-yield data: "+err.message;});
+    cropSelect.addEventListener("change",render);goalInput.addEventListener("input",render);
+    download.addEventListener("click",()=>{
+      if(!report.length||num(goalInput.value)==null||num(goalInput.value)<0)return;
+      const goal=num(goalInput.value);
+      const columns=["rank_by_reported_yield","district","crop","reported_yield_kg_per_ha","goal_yield_kg_per_ha","gap_to_goal_kg_per_ha","change_needed_percent","goal_status","year","season","source"];
+      const lines=[columns.map(csvCell).join(",")];
+      report.forEach((r,i)=>lines.push([r.yieldValue==null?"":i+1,r.district,r.crop,r.yieldValue,goal,r.gap,r.pct,r.goalStatus,r.year,r.season,r.source].map(csvCell).join(",")));
+      const blob=new Blob(["\uFEFF"+lines.join("\r\n")],{type:"text/csv;charset=utf-8;"});
+      const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="agrismart_all_district_crop_yield_goal_tracker.csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    });
+  })();
+  </script>
+
 </body>
 </html>
