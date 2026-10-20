@@ -2678,6 +2678,90 @@
     });
   })();
   </script>
+  
+  <section class="card" id="districtCropProductionImpact" style="margin-top:1.5rem;">
+    <h2>District Crop Yield-to-Production Impact Calculator</h2>
+    <p>Estimate how a hypothetical yield improvement could affect crop production for a selected district and crop. Enter the cultivated area in hectares; the calculator uses the reported yield and your chosen percentage increase to estimate production in tonnes.</p>
+    <div class="compare-controls">
+      <div class="compare-field"><label for="impactCrop">Crop</label><select id="impactCrop" disabled><option>Loading crops...</option></select></div>
+      <div class="compare-field"><label for="impactDistrict">District</label><select id="impactDistrict" disabled><option>Loading districts...</option></select></div>
+      <div class="compare-field"><label for="impactArea">Cultivated area (hectares)</label><input id="impactArea" type="number" min="0" step="any" inputmode="decimal" placeholder="Enter area in hectares" /></div>
+      <div class="compare-field"><label for="impactPercent">Hypothetical yield increase</label><select id="impactPercent"><option value="0">0% (current yield)</option><option value="5">5%</option><option value="10" selected>10%</option><option value="15">15%</option><option value="20">20%</option><option value="25">25%</option><option value="50">50%</option></select></div>
+    </div>
+    <p id="impactStatus" class="compare-note" role="status" aria-live="polite">Loading district crop-yield records...</p>
+    <div class="ranking-grid">
+      <div class="ranking-card"><div class="ranking-label">Reported yield (kg/ha)</div><div class="ranking-value" id="impactCurrentYield">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Scenario yield (kg/ha)</div><div class="ranking-value" id="impactTargetYield">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Cultivated area (ha)</div><div class="ranking-value" id="impactAreaSummary">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Estimated current production (tonnes)</div><div class="ranking-value" id="impactCurrentProduction">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Estimated scenario production (tonnes)</div><div class="ranking-value" id="impactTargetProduction">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Additional production (tonnes)</div><div class="ranking-value" id="impactAdditionalProduction">—</div></div>
+    </div>
+    <h3>Production impact summary</h3>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>District</th><th>Crop</th><th>Area (ha)</th><th>Reported yield (kg/ha)</th><th>Scenario increase (%)</th><th>Estimated current production (t)</th><th>Estimated scenario production (t)</th><th>Estimated additional production (t)</th></tr></thead>
+        <tbody id="impactBody"><tr><td colspan="8">Loading...</td></tr></tbody>
+      </table>
+    </div>
+    <button id="downloadImpact" type="button" disabled style="padding:11px 14px;border:0;border-radius:7px;background:#17643e;color:white;font-weight:bold;cursor:pointer;margin-top:12px;">Download production impact (CSV)</button>
+    <p class="compare-note">Production estimates use: yield (kg/ha) × cultivated area (ha) ÷ 1,000 = tonnes. The area is entered by you and is not inferred from the yield dataset. These are scenario estimates, not forecasts; actual production depends on many other factors. Zero, missing, or invalid yields are not treated as usable current-yield estimates.</p>
+  </section>
+  <script>
+  (() => {
+    const cropSelect=document.getElementById("impactCrop"),districtSelect=document.getElementById("impactDistrict");
+    const areaInput=document.getElementById("impactArea"),percentSelect=document.getElementById("impactPercent");
+    const status=document.getElementById("impactStatus"),tbody=document.getElementById("impactBody"),download=document.getElementById("downloadImpact");
+    const num=v=>{const s=String(v??"").trim(),n=Number(s);return s!==""&&Number.isFinite(n)?n:null;};
+    const fmt=v=>v==null?"Unavailable":v.toLocaleString(undefined,{maximumFractionDigits:3});
+    const csvCell=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"';
+    let rows=[],districts=[],crops=[],scenario=null;
+    function render(){
+      const crop=cropSelect.value,district=districtSelect.value,pct=Number(percentSelect.value),area=num(areaInput.value);
+      const row=rows.find(r=>r.crop===crop&&r.district===district)||null;
+      const current=row&&row.yield!=null&&row.yield>0?row.yield:null;
+      const validArea=area!=null&&area>=0&&String(areaInput.value).trim()!=="";
+      const target=current==null?null:current*(1+pct/100);
+      const currentProd=current!=null&&validArea?current*area/1000:null;
+      const targetProd=target!=null&&validArea?target*area/1000:null;
+      const additional=currentProd!=null&&targetProd!=null?targetProd-currentProd:null;
+      document.getElementById("impactCurrentYield").textContent=fmt(current);
+      document.getElementById("impactTargetYield").textContent=fmt(target);
+      document.getElementById("impactAreaSummary").textContent=validArea?fmt(area):"Enter a valid area";
+      document.getElementById("impactCurrentProduction").textContent=fmt(currentProd);
+      document.getElementById("impactTargetProduction").textContent=fmt(targetProd);
+      document.getElementById("impactAdditionalProduction").textContent=fmt(additional);
+      scenario={district,crop,area:validArea?area:null,currentYield:current,percent:pct,targetYield:target,currentProduction:currentProd,targetProduction:targetProd,additionalProduction:additional,year:2025,season:"B",source:row?(row.source||row.source_table||"NISR Seasonal Agricultural Survey 2025, Season B"):"No matching record in processed dataset"};
+      tbody.replaceChildren();
+      const tr=document.createElement("tr");
+      [district,crop,validArea?fmt(area):"Enter valid area",fmt(current),String(pct),fmt(currentProd),fmt(targetProd),fmt(additional)].forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.appendChild(td);});
+      tbody.appendChild(tr);
+      if(areaInput.value.trim()!==""&&(!validArea||area<0))status.textContent="Enter a valid cultivated area of zero or more hectares.";
+      else if(current==null)status.textContent="No positive current yield is available for "+district+" — "+crop+". Production estimates are unavailable for this selection.";
+      else if(!validArea)status.textContent="Enter the cultivated area in hectares to calculate production estimates for "+district+" — "+crop+".";
+      else status.textContent="Scenario for "+district+" — "+crop+": "+pct+"% assumed yield increase over "+fmt(current)+" kg/ha across "+fmt(area)+" hectares.";
+      download.disabled=!crop||!district;
+    }
+    fetch("./data/processed/agrismart_district_crop_yield_2025.csv").then(r=>{if(!r.ok)throw new Error("Crop-yield dataset could not be loaded");return r.text();}).then(raw=>{
+      const parsed=Papa.parse(raw,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")});
+      rows=(parsed.data||[]).map(r=>({district:String(r.district??"").trim(),crop:String(r.crop??"").trim(),yield:num(r.yield_kg_per_ha),year:String(r.year??"").trim(),season:String(r.season??"").trim(),source:r.source||"",source_table:r.source_table||""}))
+        .filter(r=>r.district&&r.crop&&r.year==="2025"&&r.season.toUpperCase()==="B");
+      districts=[...new Set(rows.map(r=>r.district))].sort((a,b)=>a.localeCompare(b));
+      crops=[...new Set(rows.map(r=>r.crop))].sort((a,b)=>a.localeCompare(b));
+      const fill=(el,items)=>{el.replaceChildren();items.forEach(item=>{const opt=document.createElement("option");opt.value=item;opt.textContent=item;el.appendChild(opt);});el.disabled=!items.length;};
+      fill(cropSelect,crops);fill(districtSelect,districts);render();
+    }).catch(err=>{status.textContent="Could not load crop-yield data: "+err.message;});
+    [cropSelect,districtSelect,percentSelect].forEach(el=>el.addEventListener("change",render));
+    areaInput.addEventListener("input",render);
+    download.addEventListener("click",()=>{
+      if(!scenario)return;
+      const columns=["district","crop","cultivated_area_ha","reported_yield_kg_per_ha","assumed_yield_increase_percent","scenario_yield_kg_per_ha","estimated_current_production_tonnes","estimated_scenario_production_tonnes","estimated_additional_production_tonnes","year","season","source"];
+      const values=[scenario.district,scenario.crop,scenario.area,scenario.currentYield,scenario.percent,scenario.targetYield,scenario.currentProduction,scenario.targetProduction,scenario.additionalProduction,scenario.year,scenario.season,scenario.source];
+      const blob=new Blob(["\uFEFF"+[columns.map(csvCell).join(","),values.map(csvCell).join(",")].join("\r\n")],{type:"text/csv;charset=utf-8;"});
+      const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="agrismart_district_crop_yield_production_impact.csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    });
+  })();
+  </script>
 
 </body>
 </html>
