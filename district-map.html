@@ -10,11 +10,30 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#f4f7f2;color:#24352a;font:16px/1.6 Arial,sans-serif}header{padding:16px 5%;background:#fff;box-shadow:0 5px 20px #183c2012}header h1{margin:0;color:#174d32;font-size:clamp(1.4rem,3vw,2rem)}header p{margin:3px 0;color:#607568}.nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.nav a{padding:9px 13px;border-radius:999px;background:#e5f1e7;color:#174d32;text-decoration:none;font-weight:bold;font-size:.9rem}.nav a:hover{background:#1f7044;color:#fff}main{max-width:1200px;margin:24px auto;padding:0 16px 28px}.hero{padding:clamp(26px,5vw,48px);color:white;border-radius:18px;background:linear-gradient(100deg,#092d1bea,#104a2ab8),url('https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1800&q=85') center/cover}.hero h2{font-size:clamp(2rem,4vw,3rem);line-height:1.12;margin:0 0 12px}.hero p{max-width:780px;margin:0;color:#eef8f0}.card{margin-top:20px;padding:22px;background:white;border:1px solid #e0e9e1;border-radius:15px;box-shadow:0 5px 18px #183c200b}.card h2{margin-top:0;color:#174d32}.muted{color:#526459}.controls{display:flex;gap:12px;flex-wrap:wrap;align-items:end}.field{display:flex;flex-direction:column;gap:6px;font-weight:bold;flex:1;min-width:220px}select,button{font:inherit;padding:11px 13px;border-radius:8px;border:1px solid #cbd8cd}select{background:white;color:#24352a}button{border:0;background:#17643e;color:#fff;font-weight:bold;cursor:pointer}button:hover{filter:brightness(1.08)}select:focus-visible,a:focus-visible,button:focus-visible{outline:3px solid #e3ad32;outline-offset:3px}#map{height:590px;width:100%;border-radius:12px;border:1px solid #dce6dc;background:#eaf0e8}.legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.legend span{padding:5px 10px;border-radius:999px;background:#f1f7f1;border:1px solid #dce9de;font-size:.9rem}.status{padding:12px 14px;background:#f1f7f1;border-radius:8px;margin:12px 0}.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.stat{padding:16px;border-radius:11px;background:#f1f7f1;border:1px solid #dce9de}.stat strong{display:block;color:#17643e;font-size:1.45rem}.note{border-left:4px solid #d9a323;background:#fff8df;padding:13px}footer{text-align:center;padding:22px;color:#657469;font-size:.9rem}@media(max-width:760px){header{padding:16px}.nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.nav a{text-align:center;font-size:.82rem;padding:9px 6px}.card{padding:15px}.field{min-width:100%}#map{height:480px}.stats{grid-template-columns:1fr}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important;animation:none!important}}
 </style>
+  <link rel="stylesheet" href="./site-theme.css">
 </head>
 <body>
-<header><h1>🌱 AgriSmart Rwanda</h1><p>Interactive District Agricultural Map</p><nav class="nav" aria-label="Main navigation">
-<a href="./index.html">Home</a><a href="./national-dashboard.html">National dashboard</a><a href="./districts.html">District productivity</a><a href="./insights.html">Agricultural insights</a><a href="./recommendations.html">Recommendations</a><a href="./season-comparison.html">Season comparison</a><a href="./data-quality.html">Data quality</a>
-</nav></header>
+<header>
+    <div class="agri-header-inner">
+      <div class="agri-brand-block">
+        <div class="agri-brand">🌱 AgriSmart Rwanda</div>
+        <div class="agri-subtitle">Interactive district agricultural map</div>
+      </div>
+      <nav class="agri-nav" aria-label="Main navigation">
+        <a href="./index.html">Home</a>
+        <a href="./national-dashboard.html">National dashboard</a>
+        <a href="./districts.html">Districts</a>
+        <a href="./insights.html">Insights</a>
+        <a href="./recommendations.html">Recommendations</a>
+        <a href="./season-comparison.html">Season comparison</a>
+        <a href="./crop-performance.html">Crop performance</a>
+        <a href="./data-quality.html">Data quality</a>
+        <a href="./district-map.html" aria-current="page">District map</a>
+        <a href="./data-sources.html">Data sources</a>
+        <a href="./about.html">About</a>
+      </nav>
+    </div>
+  </header>
 <main>
 <section class="hero"><h2>Explore agricultural indicators by district</h2><p>Select a crop or indicator, then select a district marker to inspect its available Season B 2025 data. Values come from AgriSmart's prepared NISR tables.</p></section>
 <section class="card"><h2>Map controls</h2><div class="controls"><label class="field" for="metric">Map indicator<select id="metric"><option value="yield">Crop yield (kg/ha)</option><option value="land_protected_against_erosion_pct">Land protected against erosion (%)</option><option value="mechanical_equipment_use_pct">Mechanical equipment use (%)</option><option value="irrigation_practice_pct">Irrigation practice (%)</option><option value="agroforestry_practice_pct">Agroforestry practice (%)</option></select></label><label class="field" for="crop">Crop (for yield map)<select id="crop"><option>Maize</option></select></label><button id="resetMap" type="button">Show all districts</button></div><p id="status" class="status" role="status">Loading district coordinates and agricultural data…</p><div id="map" role="application" aria-label="Interactive map of Rwanda districts"></div><div class="legend"><span>● Green marker: value available</span><span>● Amber marker: value missing</span><span>Marker size/color reflects relative value within the selected indicator</span></div></section>
