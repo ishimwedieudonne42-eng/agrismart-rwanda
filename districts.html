@@ -3479,5 +3479,68 @@
   })();
   </script>
 
+
+  <section id="districtCropPortfolioStrengthSummary" class="dashboard-section" style="margin:28px 0;padding:22px;border:1px solid #d8e1ea;border-radius:16px;background:var(--card-bg,#fff);">
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+      <div style="font-size:28px;" aria-hidden="true">🌾</div>
+      <div><h2 style="margin:0 0 5px;">District Crop Portfolio Strength Summary</h2>
+      <p style="margin:0;color:var(--muted,#64748b);">Summarize each district's reported crop-yield performance across the available crops in 2025 Season B.</p></div>
+    </div>
+    <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin:18px 0;">
+      <label style="display:flex;flex-direction:column;gap:6px;min-width:220px;">Rank districts by
+        <select id="portfolioStrengthSort" style="padding:9px;border:1px solid #cbd5e1;border-radius:8px;max-width:100%;">
+          <option value="above">Most crops at or above crop mean</option><option value="index">Highest average relative index</option><option value="coverage">Most valid crop yields</option><option value="below">Fewest crops below mean</option>
+        </select>
+      </label>
+      <button id="downloadPortfolioStrength" type="button" style="padding:10px 14px;border:0;border-radius:8px;cursor:pointer;">Download portfolio summary CSV</button>
+    </div>
+    <p id="portfolioStrengthStatus" role="status" style="margin:8px 0;color:var(--muted,#64748b);">Loading district crop-yield data…</p>
+    <div id="portfolioStrengthCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0;"></div>
+    <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;">
+      <thead><tr>
+        <th style="text-align:right;padding:9px;border-bottom:1px solid #cbd5e1;">Rank</th><th style="text-align:left;padding:9px;border-bottom:1px solid #cbd5e1;">District</th>
+        <th style="text-align:right;padding:9px;border-bottom:1px solid #cbd5e1;">Valid crops</th><th style="text-align:right;padding:9px;border-bottom:1px solid #cbd5e1;">At/above crop mean</th>
+        <th style="text-align:right;padding:9px;border-bottom:1px solid #cbd5e1;">Below crop mean</th><th style="text-align:right;padding:9px;border-bottom:1px solid #cbd5e1;">Average relative index</th>
+        <th style="text-align:left;padding:9px;border-bottom:1px solid #cbd5e1;">Strongest relative crop</th>
+      </tr></thead><tbody id="portfolioStrengthBody"></tbody>
+    </table></div>
+    <p style="font-size:12px;color:var(--muted,#64748b);margin-top:12px;">Each crop's district yield is compared with that crop's mean across valid positive district yields. Average relative index is the unweighted mean of those crop-specific indices, so it is not a measure of total production, farm profitability, or crop area. Districts with more available crop records may have a more complete summary.</p>
+  </section>
+  <script>
+  (function(){
+    const root=document.getElementById("districtCropPortfolioStrengthSummary");if(!root||root.dataset.initialized==="true")return;root.dataset.initialized="true";
+    const sort=document.getElementById("portfolioStrengthSort"),status=document.getElementById("portfolioStrengthStatus"),cards=document.getElementById("portfolioStrengthCards"),body=document.getElementById("portfolioStrengthBody"),download=document.getElementById("downloadPortfolioStrength");
+    let rows=[],report=[];
+    const num=v=>{if(v===null||v===undefined||String(v).trim()==="")return null;const n=Number(String(v).replace(/,/g,""));return Number.isFinite(n)?n:null;};
+    const fmt=v=>v===null||!Number.isFinite(v)?"Unavailable":v.toLocaleString(undefined,{maximumFractionDigits:2});
+    const csvCell=v=>{const s=v===null||v===undefined?"":String(v);return '"'+s.replace(/"/g,'""')+'"';};
+    const td=(tr,value,align)=>{const el=document.createElement("td");el.textContent=value;el.style.cssText="padding:9px;border-bottom:1px solid #e2e8f0;"+(align?"text-align:"+align+";":"");tr.appendChild(el);};
+    function render(){
+      const crops=[...new Set(rows.map(r=>r.crop))],means=new Map();
+      crops.forEach(c=>{const vals=rows.filter(r=>r.crop===c&&r.yieldValue!==null&&r.yieldValue>0).map(r=>r.yieldValue);means.set(c,vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null);});
+      const districts=[...new Set(rows.map(r=>r.district))];
+      report=districts.map(d=>{
+        const valid=rows.filter(r=>r.district===d&&r.yieldValue!==null&&r.yieldValue>0&&means.get(r.crop)>0).map(r=>({crop:r.crop,yieldValue:r.yieldValue,index:r.yieldValue/means.get(r.crop)*100}));
+        const above=valid.filter(r=>r.index>=100).length,below=valid.filter(r=>r.index<100).length,avg=valid.length?valid.reduce((s,r)=>s+r.index,0)/valid.length:null;
+        const best=valid.slice().sort((a,b)=>b.index-a.index||a.crop.localeCompare(b.crop))[0]||null;
+        return {district,validCount:valid.length,above,below,avg,bestCrop:best?best.crop:"Unavailable",bestIndex:best?best.index:null,year:"2025",season:"B"};
+      });
+      report.sort((a,b)=>{if(sort.value==="index")return (b.avg??-Infinity)-(a.avg??-Infinity)||a.district.localeCompare(b.district);if(sort.value==="coverage")return b.validCount-a.validCount||a.district.localeCompare(b.district);if(sort.value==="below")return a.below-b.below||b.above-a.above||a.district.localeCompare(b.district);return b.above-a.above|| (b.avg??-Infinity)-(a.avg??-Infinity)||a.district.localeCompare(b.district);});
+      const total=report.length,withData=report.filter(r=>r.validCount>0).length,avgAbove=withData?report.reduce((s,r)=>s+r.above,0)/withData:0,top=report.find(r=>r.validCount>0);
+      cards.replaceChildren();[["Districts",String(total)],["Districts with valid yields",String(withData)],["Average crops at/above mean",fmt(avgAbove)],["Top district by selected ranking",top?top.district:"Unavailable"]].forEach(([label,value])=>{const card=document.createElement("div");card.style.cssText="padding:13px;border:1px solid #dbe3ec;border-radius:10px;";const l=document.createElement("div");l.textContent=label;l.style.cssText="font-size:12px;color:#64748b;margin-bottom:6px;";const v=document.createElement("strong");v.textContent=value;v.style.fontSize="18px";card.append(l,v);cards.appendChild(card);});
+      body.replaceChildren();report.forEach((r,i)=>{const tr=document.createElement("tr");td(tr,String(i+1),"right");td(tr,r.district);td(tr,String(r.validCount),"right");td(tr,String(r.above),"right");td(tr,String(r.below),"right");td(tr,fmt(r.avg),"right");td(tr,r.bestCrop+(r.bestIndex===null?"":" ("+fmt(r.bestIndex)+"%)"));body.appendChild(tr);});
+      status.textContent="Summarized "+withData+" districts with valid positive crop yields across "+crops.length+" crops. Ranking uses the selected measure.";
+    }
+    fetch("data/processed/agrismart_district_crop_yield_2025.csv").then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.text();}).then(raw=>{
+      if(typeof Papa==="undefined")throw new Error("CSV parser is unavailable");
+      const parsed=Papa.parse(raw,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")});
+      rows=(parsed.data||[]).map(r=>({district:String(r.district??"").trim(),crop:String(r.crop??"").trim(),yieldValue:num(r.yield_kg_per_ha),year:String(r.year??"").trim(),season:String(r.season??"").trim()})).filter(r=>r.district&&r.crop&&r.year==="2025"&&r.season.toUpperCase()==="B");
+      if(!rows.length)throw new Error("No 2025 Season B district crop records found");render();
+    }).catch(err=>{status.textContent="Could not load crop-yield data: "+err.message;});
+    sort.addEventListener("change",render);
+    download.addEventListener("click",()=>{if(!report.length)return;const lines=[["rank","district","valid_crop_count","crops_at_or_above_crop_mean","crops_below_crop_mean","average_relative_index_pct","strongest_relative_crop","strongest_relative_index_pct","year","season"].map(csvCell).join(",")];report.forEach((r,i)=>lines.push([i+1,r.district,r.validCount,r.above,r.below,r.avg,r.bestCrop,r.bestIndex,r.year,r.season].map(csvCell).join(",")));const blob=new Blob(["\uFEFF"+lines.join("\r\n")],{type:"text/csv;charset=utf-8;"});const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="agrismart_district_crop_portfolio_strength_summary.csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);});
+  })();
+  </script>
+
 </body>
 </html>
