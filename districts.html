@@ -2600,6 +2600,84 @@
     });
   })();
   </script>
+  
+  <section class="card" id="districtYieldTargetPlanner" style="margin-top:1.5rem;">
+    <h2>District Crop Yield Improvement Target Planner</h2>
+    <p>Explore a hypothetical yield-improvement target for a selected district and crop. The planner estimates the yield level that would result from the chosen percentage increase and compares it with the observed crop median and highest positive reported yield across districts.</p>
+    <div class="compare-controls">
+      <div class="compare-field"><label for="targetPlannerCrop">Crop</label><select id="targetPlannerCrop" disabled><option>Loading crops...</option></select></div>
+      <div class="compare-field"><label for="targetPlannerDistrict">District</label><select id="targetPlannerDistrict" disabled><option>Loading districts...</option></select></div>
+      <div class="compare-field"><label for="targetPlannerPercent">Hypothetical improvement target</label><select id="targetPlannerPercent"><option value="5">5% increase</option><option value="10" selected>10% increase</option><option value="15">15% increase</option><option value="20">20% increase</option><option value="25">25% increase</option><option value="50">50% increase</option></select></div>
+    </div>
+    <p id="targetPlannerStatus" class="compare-note" role="status" aria-live="polite">Loading district crop-yield records...</p>
+    <div class="ranking-grid">
+      <div class="ranking-card"><div class="ranking-label">Current reported yield (kg/ha)</div><div class="ranking-value" id="tpCurrent">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Hypothetical target yield (kg/ha)</div><div class="ranking-value" id="tpTarget">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Yield increase needed (kg/ha)</div><div class="ranking-value" id="tpGain">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Crop median (kg/ha)</div><div class="ranking-value" id="tpMedian">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Highest observed district yield (kg/ha)</div><div class="ranking-value" id="tpHighest">—</div></div>
+      <div class="ranking-card"><div class="ranking-label">Target vs crop median</div><div class="ranking-value" id="tpMedianStatus">—</div></div>
+    </div>
+    <h3>Scenario summary</h3>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>District</th><th>Crop</th><th>Current yield (kg/ha)</th><th>Target increase (%)</th><th>Target yield (kg/ha)</th><th>Additional yield needed (kg/ha)</th><th>Target vs median</th><th>Target vs observed leader</th></tr></thead>
+        <tbody id="targetPlannerBody"><tr><td colspan="8">Loading...</td></tr></tbody>
+      </table>
+    </div>
+    <button id="downloadTargetPlanner" type="button" disabled style="padding:11px 14px;border:0;border-radius:7px;background:#17643e;color:white;font-weight:bold;cursor:pointer;margin-top:12px;">Download yield target scenario (CSV)</button>
+    <p class="compare-note">This is a mathematical scenario, not a forecast or agronomic recommendation. It assumes the selected percentage increase is achieved; it does not estimate costs, weather effects, cultivated area, or production totals. A missing, zero, or invalid current yield cannot be used to calculate a percentage target.</p>
+  </section>
+  <script>
+  (() => {
+    const cropSelect=document.getElementById("targetPlannerCrop"),districtSelect=document.getElementById("targetPlannerDistrict"),percentSelect=document.getElementById("targetPlannerPercent");
+    const status=document.getElementById("targetPlannerStatus"),tbody=document.getElementById("targetPlannerBody"),download=document.getElementById("downloadTargetPlanner");
+    const num=v=>{const s=String(v??"").trim(),n=Number(s);return s!==""&&Number.isFinite(n)?n:null;};
+    const fmt=v=>v==null?"Unavailable":v.toLocaleString(undefined,{maximumFractionDigits:2});
+    const csvCell=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"';
+    const median=arr=>{if(!arr.length)return null;const s=arr.slice().sort((a,b)=>a-b),m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2;};
+    let rows=[],districts=[],crops=[],scenario=null;
+    function render(){
+      const crop=cropSelect.value,district=districtSelect.value,pct=Number(percentSelect.value);
+      const cropRows=rows.filter(r=>r.crop===crop),valid=cropRows.filter(r=>r.yield!=null&&r.yield>0);
+      const med=median(valid.map(r=>r.yield)),leader=valid.length?Math.max(...valid.map(r=>r.yield)):null;
+      const currentRow=cropRows.find(r=>r.district===district)||null,current=currentRow&&currentRow.yield!=null&&currentRow.yield>0?currentRow.yield:null;
+      const target=current==null?null:current*(1+pct/100),gain=target==null?null:target-current;
+      const medianStatus=target==null||med==null?"Unavailable":target>=med?"At or above median":"Below median";
+      const leaderStatus=target==null||leader==null?"Unavailable":target>=leader?"At or above observed leader":"Below observed leader";
+      document.getElementById("tpCurrent").textContent=fmt(current);
+      document.getElementById("tpTarget").textContent=fmt(target);
+      document.getElementById("tpGain").textContent=fmt(gain);
+      document.getElementById("tpMedian").textContent=fmt(med);
+      document.getElementById("tpHighest").textContent=fmt(leader);
+      document.getElementById("tpMedianStatus").textContent=medianStatus;
+      scenario={district,crop,current,target,gain,percent:pct,median:med,leader,medianStatus,leaderStatus,year:2025,season:"B",source:currentRow?(currentRow.source||currentRow.source_table||"NISR Seasonal Agricultural Survey 2025, Season B"):"No matching record in processed dataset"};
+      tbody.replaceChildren();
+      const tr=document.createElement("tr");
+      [district,crop,fmt(current),String(pct),fmt(target),fmt(gain),medianStatus,leaderStatus].forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.appendChild(td);});
+      tbody.appendChild(tr);
+      status.textContent=current==null?"No positive current yield is available for "+district+" — "+crop+". Choose another district or crop to calculate a scenario.":"Scenario assumes a "+pct+"% increase over the reported yield for "+district+" — "+crop+".";
+      download.disabled=!crop||!district;
+    }
+    fetch("./data/processed/agrismart_district_crop_yield_2025.csv").then(r=>{if(!r.ok)throw new Error("Crop-yield dataset could not be loaded");return r.text();}).then(raw=>{
+      const parsed=Papa.parse(raw,{header:true,skipEmptyLines:true,transformHeader:h=>h.trim().replace(/^\uFEFF/,"")});
+      rows=(parsed.data||[]).map(r=>({district:String(r.district??"").trim(),crop:String(r.crop??"").trim(),yield:num(r.yield_kg_per_ha),year:String(r.year??"").trim(),season:String(r.season??"").trim(),source:r.source||"",source_table:r.source_table||""}))
+        .filter(r=>r.district&&r.crop&&r.year==="2025"&&r.season.toUpperCase()==="B");
+      districts=[...new Set(rows.map(r=>r.district))].sort((a,b)=>a.localeCompare(b));
+      crops=[...new Set(rows.map(r=>r.crop))].sort((a,b)=>a.localeCompare(b));
+      const fill=(el,items)=>{el.replaceChildren();items.forEach(item=>{const opt=document.createElement("option");opt.value=item;opt.textContent=item;el.appendChild(opt);});el.disabled=!items.length;};
+      fill(cropSelect,crops);fill(districtSelect,districts);render();
+    }).catch(err=>{status.textContent="Could not load crop-yield data: "+err.message;});
+    [cropSelect,districtSelect,percentSelect].forEach(el=>el.addEventListener("change",render));
+    download.addEventListener("click",()=>{
+      if(!scenario)return;
+      const columns=["district","crop","current_yield_kg_per_ha","target_increase_percent","hypothetical_target_yield_kg_per_ha","additional_yield_needed_kg_per_ha","crop_median_kg_per_ha","highest_observed_district_yield_kg_per_ha","target_vs_median","target_vs_observed_leader","year","season","source"];
+      const values=[scenario.district,scenario.crop,scenario.current,scenario.percent,scenario.target,scenario.gain,scenario.median,scenario.leader,scenario.medianStatus,scenario.leaderStatus,scenario.year,scenario.season,scenario.source];
+      const blob=new Blob(["\uFEFF"+[columns.map(csvCell).join(","),values.map(csvCell).join(",")].join("\r\n")],{type:"text/csv;charset=utf-8;"});
+      const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="agrismart_district_crop_yield_target_scenario.csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    });
+  })();
+  </script>
 
 </body>
 </html>
