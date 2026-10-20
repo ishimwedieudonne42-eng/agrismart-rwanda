@@ -57,12 +57,30 @@ footer{text-align:center;padding:26px 20px;color:#657469;font-size:13px;border-t
 @media(max-width:600px){header{padding:13px 16px}header h1{font-size:1.3rem}.nav-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.nav-buttons a{padding:10px 7px;text-align:center;font-size:.82rem}main{padding:0 14px;margin-top:18px}.hero{min-height:230px;padding:25px 21px;border-radius:16px}.hero p{font-size:.95rem}.card{padding:17px;border-radius:14px}.stats{gap:10px}.stat{padding:15px 12px}.stat strong{font-size:1.3rem}.stat span{font-size:.8rem}.controls{align-items:stretch}.controls>div,.controls button{width:100%;min-width:0}.chart{height:285px}th,td{padding:10px;font-size:.88rem}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 </style>
+  <link rel="stylesheet" href="./site-theme.css">
 </head>
 <body>
-<header><h1>🌱 Season Comparison Dashboard</h1><p>Compare reported national crop indicators across Season B, 2023–2025</p>
-<nav class="nav-buttons" aria-label="Main navigation">
-<a href="./index.html">Home</a><a href="./national-dashboard.html">National dashboard</a><a href="./districts.html">District productivity</a><a href="./insights.html">Agricultural insights</a><a href="./recommendations.html">Recommendations</a><a href="./about.html">Project overview</a><a href="./data-sources.html">Data sources</a><a href="./season-comparison.html" aria-disabled="true" aria-current="page">Season comparison</a>
-</nav></header>
+<header>
+    <div class="agri-header-inner">
+      <div class="agri-brand-block">
+        <div class="agri-brand">🌱 AgriSmart Rwanda</div>
+        <div class="agri-subtitle">Compare reported crop indicators across seasons</div>
+      </div>
+      <nav class="agri-nav" aria-label="Main navigation">
+        <a href="./index.html">Home</a>
+        <a href="./national-dashboard.html">National dashboard</a>
+        <a href="./districts.html">Districts</a>
+        <a href="./insights.html">Insights</a>
+        <a href="./recommendations.html">Recommendations</a>
+        <a href="./season-comparison.html" aria-current="page">Season comparison</a>
+        <a href="./crop-performance.html">Crop performance</a>
+        <a href="./data-quality.html">Data quality</a>
+        <a href="./district-map.html">District map</a>
+        <a href="./data-sources.html">Data sources</a>
+        <a href="./about.html">About</a>
+      </nav>
+    </div>
+  </header>
 <main>
 <section class="hero" aria-labelledby="heroTitle"><div class="hero-content"><span class="eyebrow">AgriSmart Rwanda · Season B</span><h2 id="heroTitle">Understand how crop performance changes over time</h2><p>Explore reported production, cultivated area, harvested area and yield across 2023–2025 using prepared NISR survey data.</p></div></section>
 <section class="card"><h2>Choose a crop</h2><p>Select a crop to compare its reported production, cultivated area, harvested area and yield for each available year.</p>
